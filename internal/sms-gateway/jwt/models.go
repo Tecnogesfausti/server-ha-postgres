@@ -20,7 +20,7 @@ type tokenModel struct {
 
 	ID        string    `gorm:"primaryKey;type:char(21)"`
 	UserID    string    `gorm:"not null;type:char(21);index:idx_tokens_user_id"`
-	TokenUse  tokenUse  `gorm:"not null;type:enum('access','refresh');default:access"`
+	TokenUse  tokenUse  `gorm:"not null;type:varchar(16);default:access"`
 	ParentJTI *string   `gorm:"type:char(21);index:idx_tokens_parent_jti"`
 	ExpiresAt time.Time `gorm:"not null;index:idx_tokens_expires_at"`
 	RevokedAt *time.Time

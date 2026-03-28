@@ -45,6 +45,7 @@ type OpenAPI struct {
 }
 
 type Database struct {
+	Dialect  string `yaml:"dialect"  envconfig:"DATABASE__DIALECT"`  // database dialect: mysql, mariadb, postgres
 	Host     string `yaml:"host"     envconfig:"DATABASE__HOST"`     // database host
 	Port     int    `yaml:"port"     envconfig:"DATABASE__PORT"`     // database port
 	User     string `yaml:"user"     envconfig:"DATABASE__USER"`     // database user
@@ -107,6 +108,7 @@ func Default() Config {
 			Listen: ":3000",
 		},
 		Database: Database{
+			Dialect:  "mysql",
 			Host:     "localhost",
 			Port:     3306,
 			User:     "sms",

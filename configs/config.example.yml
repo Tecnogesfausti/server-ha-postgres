@@ -1,6 +1,7 @@
 ## Common Config ##
 
 database: # database
+  dialect: mysql # database dialect: mysql, mariadb, postgres [DATABASE__DIALECT]
   host: localhost # database host [DATABASE__HOST]
   port: 3306 # database port [DATABASE__PORT]
   user: root # database user [DATABASE__USER]

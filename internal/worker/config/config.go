@@ -48,6 +48,7 @@ func Default() Config {
 			},
 		},
 		Database: config.Database{
+			Dialect:      "mysql",
 			Host:         "localhost",
 			Port:         3306,
 			User:         "sms",

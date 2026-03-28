@@ -36,19 +36,19 @@ type DataMessageContent struct {
 type Message struct {
 	models.SoftDeletableModel
 
-	ID                 uint64          `gorm:"primaryKey;type:BIGINT UNSIGNED;autoIncrement"`
+	ID                 uint64          `gorm:"primaryKey;autoIncrement"`
 	DeviceID           string          `gorm:"not null;type:char(21);uniqueIndex:unq_messages_id_device,priority:2;index:idx_messages_device_state"`
 	ExtID              string          `gorm:"not null;type:varchar(36);uniqueIndex:unq_messages_id_device,priority:1"`
-	Type               MessageType     `gorm:"not null;type:enum('Text','Data');default:Text"`
+	Type               MessageType     `gorm:"not null;type:varchar(16);default:Text"`
 	Content            string          `gorm:"not null;type:text"`
-	State              ProcessingState `gorm:"not null;type:enum('Pending','Sent','Processed','Delivered','Failed');default:Pending;index:idx_messages_device_state"`
-	ValidUntil         *time.Time      `gorm:"type:datetime"`
-	SimNumber          *uint8          `gorm:"type:tinyint(1) unsigned"`
-	WithDeliveryReport bool            `gorm:"not null;type:tinyint(1) unsigned"`
-	Priority           int8            `gorm:"not null;type:tinyint;default:0"`
+	State              ProcessingState `gorm:"not null;type:varchar(16);default:Pending;index:idx_messages_device_state"`
+	ValidUntil         *time.Time
+	SimNumber          *uint8
+	WithDeliveryReport bool `gorm:"not null;default:false"`
+	Priority           int8 `gorm:"not null;default:0"`
 
-	IsHashed    bool `gorm:"not null;type:tinyint(1) unsigned;default:0"`
-	IsEncrypted bool `gorm:"not null;type:tinyint(1) unsigned;default:0"`
+	IsHashed    bool `gorm:"not null;default:false"`
+	IsEncrypted bool `gorm:"not null;default:false"`
 
 	Device     models.Device      `gorm:"foreignKey:DeviceID;constraint:OnDelete:CASCADE"`
 	Recipients []MessageRecipient `gorm:"foreignKey:MessageID;constraint:OnDelete:CASCADE"`
@@ -137,10 +137,10 @@ func (m *Message) GetDataContent() (*DataMessageContent, error) {
 }
 
 type MessageRecipient struct {
-	ID          uint64          `gorm:"primaryKey;type:BIGINT UNSIGNED;autoIncrement"`
-	MessageID   uint64          `gorm:"uniqueIndex:unq_message_recipients_message_id_phone_number,priority:1;type:BIGINT UNSIGNED"`
+	ID          uint64          `gorm:"primaryKey;autoIncrement"`
+	MessageID   uint64          `gorm:"uniqueIndex:unq_message_recipients_message_id_phone_number,priority:1"`
 	PhoneNumber string          `gorm:"uniqueIndex:unq_message_recipients_message_id_phone_number,priority:2;type:varchar(128)"`
-	State       ProcessingState `gorm:"not null;type:enum('Pending','Sent','Processed','Delivered','Failed');default:Pending"`
+	State       ProcessingState `gorm:"not null;type:varchar(16);default:Pending"`
 	Error       *string         `gorm:"type:varchar(256)"`
 }
 
@@ -155,10 +155,10 @@ func newMessageRecipient(phoneNumber string, state ProcessingState, err *string)
 }
 
 type MessageState struct {
-	ID        uint64          `gorm:"primaryKey;type:BIGINT UNSIGNED;autoIncrement"`
-	MessageID uint64          `gorm:"not null;type:BIGINT UNSIGNED;uniqueIndex:unq_message_states_message_id_state,priority:1"`
-	State     ProcessingState `gorm:"not null;type:enum('Pending','Sent','Processed','Delivered','Failed');uniqueIndex:unq_message_states_message_id_state,priority:2"`
-	UpdatedAt time.Time       `gorm:"<-:create;not null;autoupdatetime:false"`
+	ID        uint64          `gorm:"primaryKey;autoIncrement"`
+	MessageID uint64          `gorm:"not null;uniqueIndex:unq_message_states_message_id_state,priority:1"`
+	State     ProcessingState `gorm:"not null;type:varchar(16);uniqueIndex:unq_message_states_message_id_state,priority:2"`
+	UpdatedAt time.Time       `gorm:"not null;autoCreateTime"`
 }
 
 func Migrate(db *gorm.DB) error {

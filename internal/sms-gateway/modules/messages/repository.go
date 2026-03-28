@@ -2,11 +2,13 @@ package messages
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/android-sms-gateway/server/pkg/mysql"
+	"github.com/capcom6/go-infra-fx/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -18,12 +20,14 @@ var ErrMessageAlreadyExists = errors.New("duplicate id")
 var ErrMultipleMessagesFound = errors.New("multiple messages found")
 
 type Repository struct {
-	db *gorm.DB
+	db      *gorm.DB
+	dialect db.Dialect
 }
 
-func NewRepository(db *gorm.DB) *Repository {
+func NewRepository(dbConn *gorm.DB, cfg db.Config) *Repository {
 	return &Repository{
-		db: db,
+		db:      dbConn,
+		dialect: cfg.Dialect,
 	}
 }
 
@@ -132,7 +136,7 @@ func (r *Repository) Insert(message *Message) error {
 		return nil
 	}
 
-	if errors.Is(err, gorm.ErrDuplicatedKey) || mysql.IsDuplicateKeyViolation(err) {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return ErrMessageAlreadyExists
 	}
 
@@ -174,22 +178,61 @@ func (r *Repository) UpdateState(message *Message) error {
 }
 
 func (r *Repository) HashProcessed(ctx context.Context, ids []uint64) (int64, error) {
-	rawSQL := "UPDATE `messages` `m`, `message_recipients` `r`\n" +
-		"SET `m`.`is_hashed` = true, `m`.`content` = SHA2(COALESCE(JSON_VALUE(`content`, '$.text'), JSON_VALUE(`content`, '$.data')), 256), `r`.`phone_number` = LEFT(SHA2(phone_number, 256), 16)\n" +
-		"WHERE `m`.`id` = `r`.`message_id` AND `m`.`is_hashed` = false AND `m`.`is_encrypted` = false AND `m`.`state` <> 'Pending'"
-	params := []any{}
+	query := r.db.WithContext(ctx).
+		Preload("Recipients").
+		Where("is_hashed = ?", false).
+		Where("is_encrypted = ?", false).
+		Where("state <> ?", ProcessingStatePending)
 	if len(ids) > 0 {
-		rawSQL += " AND `m`.`id` IN (?)"
-		params = append(params, ids)
+		query = query.Where("id IN ?", ids)
 	}
 
-	res := r.db.WithContext(ctx).
-		Exec(rawSQL, params...)
-	if res.Error != nil {
-		return 0, fmt.Errorf("sql error: %w", res.Error)
+	var messages []Message
+	if err := query.Find(&messages).Error; err != nil {
+		return 0, fmt.Errorf("failed to select messages for hashing: %w", err)
 	}
 
-	return res.RowsAffected, nil
+	var rowsAffected int64
+	for i := range messages {
+		message := &messages[i]
+		hashedContent, err := hashMessageContent(*message)
+		if err != nil {
+			return rowsAffected, fmt.Errorf("failed to hash message %d: %w", message.ID, err)
+		}
+
+		err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&Message{}).
+				Where("id = ?", message.ID).
+				Updates(map[string]any{
+					"is_hashed": true,
+					"content":   hashedContent,
+				}).Error; err != nil {
+				return err
+			}
+
+			for _, recipient := range message.Recipients {
+				hashedPhone := hashString(recipient.PhoneNumber)
+				if len(hashedPhone) > 16 {
+					hashedPhone = hashedPhone[:16]
+				}
+
+				if err := tx.Model(&MessageRecipient{}).
+					Where("id = ?", recipient.ID).
+					Update("phone_number", hashedPhone).Error; err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			return rowsAffected, fmt.Errorf("failed to persist hashes for message %d: %w", message.ID, err)
+		}
+
+		rowsAffected++
+	}
+
+	return rowsAffected, nil
 }
 
 func (r *Repository) Cleanup(ctx context.Context, until time.Time) (int64, error) {
@@ -199,4 +242,25 @@ func (r *Repository) Cleanup(ctx context.Context, until time.Time) (int64, error
 		Where("created_at < ?", until).
 		Delete(new(Message))
 	return res.RowsAffected, res.Error
+}
+
+func hashMessageContent(message Message) (string, error) {
+	if content, err := message.GetTextContent(); err != nil {
+		return "", err
+	} else if content != nil {
+		return hashString(content.Text), nil
+	}
+
+	if content, err := message.GetDataContent(); err != nil {
+		return "", err
+	} else if content != nil {
+		return hashString(content.Data), nil
+	}
+
+	return hashString(message.Content), nil
+}
+
+func hashString(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
 }

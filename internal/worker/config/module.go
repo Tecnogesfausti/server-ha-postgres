@@ -26,7 +26,7 @@ func Module() fx.Option {
 		}, fx.Private),
 		fx.Provide(func(cfg Config) db.Config {
 			return db.Config{
-				Dialect:         db.DialectMySQL,
+				Dialect:         db.Dialect(cfg.Database.Dialect),
 				DSN:             "",
 				Host:            cfg.Database.Host,
 				Port:            cfg.Database.Port,

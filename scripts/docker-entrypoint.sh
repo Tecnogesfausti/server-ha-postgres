@@ -6,7 +6,11 @@ set -e
 
 # Execute DB migrations only when the main application is about to run
 if [ $# -eq 1 ] && [ "${1:-}" = "/app/app" ]; then
-  /app/app db:migrate up
+  if [ "${DATABASE__DIALECT:-}" = "postgres" ] || grep -q 'dialect:[[:space:]]*postgres' /app/config.yml 2>/dev/null; then
+    /app/app db:auto-migrate
+  else
+    /app/app db:migrate up
+  fi
 fi
 
 # Execute the main application

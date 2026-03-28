@@ -12,7 +12,7 @@ import (
 type Webhook struct {
 	models.SoftDeletableModel
 
-	ID     uint64 `json:"-"  gorm:"->;primaryKey;type:BIGINT UNSIGNED;autoIncrement"`
+	ID     uint64 `json:"-"  gorm:"primaryKey;autoIncrement"`
 	ExtID  string `json:"id" gorm:"not null;type:varchar(36);uniqueIndex:unq_webhooks_user_extid,priority:2"`
 	UserID string `json:"-"  gorm:"<-:create;not null;type:varchar(32);uniqueIndex:unq_webhooks_user_extid,priority:1"`
 
