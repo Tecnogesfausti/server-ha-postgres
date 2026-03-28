@@ -6,7 +6,7 @@ import (
 	"github.com/android-sms-gateway/server/internal/health"
 	smsgateway "github.com/android-sms-gateway/server/internal/sms-gateway"
 	"github.com/android-sms-gateway/server/internal/worker"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
 )
 
 const (
