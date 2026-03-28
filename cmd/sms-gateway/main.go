@@ -1,18 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 
 	"github.com/android-sms-gateway/server/internal/health"
 	smsgateway "github.com/android-sms-gateway/server/internal/sms-gateway"
 	"github.com/android-sms-gateway/server/internal/worker"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
 	cmdWorker = "worker"
 	cmdHealth = "health"
 )
+
+func init() {
+	sql.Register("postgres", stdlib.GetDefaultDriver())
+}
 
 //	@securitydefinitions.basic	ApiAuth
 //	@description				User authentication
