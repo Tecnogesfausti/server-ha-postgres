@@ -12,6 +12,7 @@ import (
 	appdb "github.com/android-sms-gateway/server/internal/sms-gateway/modules/db"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/devices"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/events"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/incoming"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/messages"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/metrics"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/push"
@@ -53,6 +54,7 @@ func Module() fx.Option {
 		cache.Module(),
 		pubsub.Module(),
 		events.Module(),
+		incoming.Module(),
 		messages.Module(),
 		health.Module(),
 		webhooks.Module(),

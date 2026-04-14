@@ -8,6 +8,7 @@ import (
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/base"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/converters"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/events"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/incoming"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/messages"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/deviceauth"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/userauth"
@@ -33,6 +34,7 @@ type mobileHandler struct {
 	devicesSvc *devices.Service
 
 	messagesCtrl *messages.MobileController
+	incomingCtrl *incoming.MobileController
 	webhooksCtrl *webhooks.MobileController
 	settingsCtrl *settings.MobileController
 	eventsCtrl   *events.MobileController
@@ -46,6 +48,7 @@ func newMobileHandler(
 	devicesSvc *devices.Service,
 
 	messagesCtrl *messages.MobileController,
+	incomingCtrl *incoming.MobileController,
 	webhooksCtrl *webhooks.MobileController,
 	settingsCtrl *settings.MobileController,
 	eventsCtrl *events.MobileController,
@@ -66,6 +69,7 @@ func newMobileHandler(
 		devicesSvc: devicesSvc,
 
 		messagesCtrl: messagesCtrl,
+		incomingCtrl: incomingCtrl,
 		webhooksCtrl: webhooksCtrl,
 		settingsCtrl: settingsCtrl,
 		eventsCtrl:   eventsCtrl,
@@ -283,6 +287,7 @@ func (h *mobileHandler) Register(router fiber.Router) {
 
 	h.messagesCtrl.Register(router.Group("/message"))
 	h.messagesCtrl.Register(router.Group("/messages"))
+	h.incomingCtrl.Register(router.Group("/incoming"))
 	h.webhooksCtrl.Register(router.Group("/webhooks"))
 	h.settingsCtrl.Register(router.Group("/settings"))
 	h.eventsCtrl.Register(router.Group("/events"))

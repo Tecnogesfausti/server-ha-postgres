@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/base"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/devices"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/incoming"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/logs"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/messages"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/jwtauth"
@@ -24,6 +25,7 @@ type thirdPartyHandler struct {
 	jwtSvc   jwt.Service
 
 	healthHandler   *HealthHandler
+	incomingHandler *incoming.ThirdPartyController
 	messagesHandler *messages.ThirdPartyController
 	webhooksHandler *webhooks.ThirdPartyController
 	devicesHandler  *devices.ThirdPartyController
@@ -37,6 +39,7 @@ func newThirdPartyHandler(
 	jwtService jwt.Service,
 
 	healthHandler *HealthHandler,
+	incomingHandler *incoming.ThirdPartyController,
 	messagesHandler *messages.ThirdPartyController,
 	webhooksHandler *webhooks.ThirdPartyController,
 	devicesHandler *devices.ThirdPartyController,
@@ -57,6 +60,7 @@ func newThirdPartyHandler(
 		jwtSvc:   jwtService,
 
 		healthHandler:   healthHandler,
+		incomingHandler: incomingHandler,
 		messagesHandler: messagesHandler,
 		webhooksHandler: webhooksHandler,
 		devicesHandler:  devicesHandler,
@@ -78,6 +82,8 @@ func (h *thirdPartyHandler) Register(router fiber.Router) {
 	)
 
 	h.authHandler.Register(router.Group("/auth"))
+
+	h.incomingHandler.Register(router.Group("/incoming"))
 
 	h.messagesHandler.Register(router.Group("/message")) // TODO: remove after 2025-12-31
 	h.messagesHandler.Register(router.Group("/messages"))
