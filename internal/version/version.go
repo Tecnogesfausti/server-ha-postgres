@@ -2,14 +2,14 @@ package version
 
 import "strconv"
 
-const notSet string = "not set"
+const notSet string = "1.29.3-tecnoges-incoming.1"
 
 // This information will be collected when build, by `-ldflags "-X main.appVersion=0.1"`.
 //
 //nolint:gochecknoglobals // build-time constant
 var (
 	AppVersion = notSet
-	AppRelease = notSet
+	AppRelease = "20260414"
 )
 
 func AppReleaseID() int {

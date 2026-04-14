@@ -38,6 +38,13 @@ This server acts as the backend component of the [SMSGate](https://github.com/ca
 - **Access Control**: Operate in either public mode for open access or private mode for restricted access.
 - **Data SMS Support**: Send/receive binary payloads via SMS with Base64 encoding and port-based routing.
 - **JWT Authentication**: Secure API access with JSON Web Tokens, including access and refresh token support for enhanced security.
+- **Incoming SMS API**: Persist inbound SMS from Android gateways and query them through the 3rdparty API.
+
+## Current branch release
+
+- Branch: `postgres-ha-port`
+- Release: `1.29.3-tecnoges-incoming.1`
+- Notes: see [RELEASES.md](RELEASES.md)
 
 ## Prerequisites
 
