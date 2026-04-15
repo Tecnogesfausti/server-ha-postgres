@@ -1,5 +1,13 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.5
+
+Date: 2026-04-15
+
+Changes:
+- `/health` now includes `checks["messages:hashing_interval_seconds"]` so you can verify the effective runtime hashing interval via curl.
+- Useful to confirm whether `MESSAGES__HASHING_INTERVAL_SECONDS=0` is actually applied in Home Assistant runtime.
+
 ## 1.29.3-tecnoges-incoming.4
 
 Date: 2026-04-15

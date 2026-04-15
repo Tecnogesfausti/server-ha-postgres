@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/android-sms-gateway/client-go/smsgateway"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/base"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/messages"
 	"github.com/android-sms-gateway/server/internal/version"
 	"github.com/android-sms-gateway/server/pkg/health"
 	"github.com/gofiber/fiber/v2"
@@ -13,11 +14,13 @@ import (
 type HealthHandler struct {
 	base.Handler
 
-	healthSvc *health.Service
+	healthSvc               *health.Service
+	messagesHashingInterval int
 }
 
 func NewHealthHandler(
 	healthSvc *health.Service,
+	messagesCfg messages.Config,
 	logger *zap.Logger,
 ) *HealthHandler {
 	return &HealthHandler{
@@ -25,7 +28,8 @@ func NewHealthHandler(
 			Logger:    logger,
 			Validator: nil,
 		},
-		healthSvc: healthSvc,
+		healthSvc:               healthSvc,
+		messagesHashingInterval: int(messagesCfg.HashingInterval.Seconds()),
 	}
 }
 
@@ -39,7 +43,7 @@ func NewHealthHandler(
 //
 // Liveness probe.
 func (h *HealthHandler) getLiveness(c *fiber.Ctx) error {
-	return writeProbe(c, h.healthSvc.CheckLiveness(c.Context()))
+	return h.writeProbe(c, h.healthSvc.CheckLiveness(c.Context()))
 }
 
 //	@Summary		Readiness probe
@@ -53,7 +57,7 @@ func (h *HealthHandler) getLiveness(c *fiber.Ctx) error {
 //
 // Readiness probe.
 func (h *HealthHandler) getReadiness(c *fiber.Ctx) error {
-	return writeProbe(c, h.healthSvc.CheckReadiness(c.Context()))
+	return h.writeProbe(c, h.healthSvc.CheckReadiness(c.Context()))
 }
 
 //	@Summary		Startup probe
@@ -66,33 +70,41 @@ func (h *HealthHandler) getReadiness(c *fiber.Ctx) error {
 //
 // Startup probe.
 func (h *HealthHandler) getStartup(c *fiber.Ctx) error {
-	return writeProbe(c, h.healthSvc.CheckStartup(c.Context()))
+	return h.writeProbe(c, h.healthSvc.CheckStartup(c.Context()))
 }
 
-func writeProbe(c *fiber.Ctx, r health.CheckResult) error {
+func (h *HealthHandler) writeProbe(c *fiber.Ctx, r health.CheckResult) error {
 	status := fiber.StatusOK
 	if r.Status() == health.StatusFail {
 		status = fiber.StatusServiceUnavailable
 	}
-	return c.Status(status).JSON(makeResponse(r))
+	return c.Status(status).JSON(h.makeResponse(r))
 }
 
-func makeResponse(result health.CheckResult) smsgateway.HealthResponse {
+func (h *HealthHandler) makeResponse(result health.CheckResult) smsgateway.HealthResponse {
+	checks := lo.MapValues(
+		result.Checks,
+		func(value health.CheckDetail, _ string) smsgateway.HealthCheck {
+			return smsgateway.HealthCheck{
+				Description:   value.Description,
+				ObservedUnit:  value.ObservedUnit,
+				ObservedValue: value.ObservedValue,
+				Status:        smsgateway.HealthStatus(value.Status),
+			}
+		},
+	)
+	checks["messages:hashing_interval_seconds"] = smsgateway.HealthCheck{
+		Description:   "Outgoing message hashing interval",
+		ObservedUnit:  "seconds",
+		ObservedValue: h.messagesHashingInterval,
+		Status:        smsgateway.HealthStatusPass,
+	}
+
 	return smsgateway.HealthResponse{
 		Status:    smsgateway.HealthStatus(result.Status()),
 		Version:   version.AppVersion,
 		ReleaseID: version.AppReleaseID(),
-		Checks: lo.MapValues(
-			result.Checks,
-			func(value health.CheckDetail, _ string) smsgateway.HealthCheck {
-				return smsgateway.HealthCheck{
-					Description:   value.Description,
-					ObservedUnit:  value.ObservedUnit,
-					ObservedValue: value.ObservedValue,
-					Status:        smsgateway.HealthStatus(value.Status),
-				}
-			},
-		),
+		Checks:    checks,
 	}
 }
 
