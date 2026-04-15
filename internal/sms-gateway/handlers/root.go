@@ -151,7 +151,7 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
   </section>
 
   <script>
-    const apiBase = "/api/3rdparty/v1";
+    const apiBase = window.location.protocol + "//" + window.location.host + "/api/3rdparty/v1";
 
     function pretty(value) {
       return JSON.stringify(value, null, 2);
