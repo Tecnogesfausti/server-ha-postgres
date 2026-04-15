@@ -57,6 +57,13 @@ func (h *rootHandler) registerOpenAPI(router fiber.Router) {
 func (h *rootHandler) registerUI(app *fiber.App) {
 	group := app.Group("/ui",
 		userauth.NewBasic(h.usersSvc),
+		func(c *fiber.Ctx) error {
+			if !userauth.HasUser(c) {
+				c.Set(fiber.HeaderWWWAuthenticate, `Basic realm="SMSGate UI"`)
+				return fiber.ErrUnauthorized
+			}
+			return c.Next()
+		},
 		userauth.UserRequired(),
 	)
 
