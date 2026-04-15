@@ -1,5 +1,13 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.4
+
+Date: 2026-04-15
+
+Changes:
+- Outgoing API responses now also include `contentPreview` (aligned with incoming endpoint).
+- `/ui` now renders incoming/outgoing as readable cards (status, dates, sender/recipient, preview) instead of raw JSON blocks.
+
 ## 1.29.3-tecnoges-incoming.3
 
 Date: 2026-04-15

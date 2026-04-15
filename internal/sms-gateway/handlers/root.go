@@ -111,6 +111,13 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
     button.secondary { background: #374151; }
     pre { background: #0b1020; color: #e5e7eb; border-radius: 8px; padding: 10px; overflow: auto; max-height: 360px; }
     .muted { color: #6b7280; font-size: 12px; }
+    .list { display: grid; gap: 8px; max-height: 420px; overflow: auto; margin-top: 10px; }
+    .item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #fafafa; }
+    .item-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 12px; color: #374151; }
+    .item-title { font-size: 14px; color: #111827; margin: 0 0 4px; font-weight: 600; }
+    .item-preview { font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-word; }
+    .tag { padding: 2px 6px; border-radius: 999px; background: #e5e7eb; color: #111827; font-size: 11px; }
+    .error { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px; }
   </style>
 </head>
 <body>
@@ -140,14 +147,14 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
     <section class="card">
       <h2>Incoming</h2>
       <button class="secondary" id="refreshIncoming">Refresh Incoming</button>
-      <pre id="incomingResult"></pre>
+      <div id="incomingResult" class="list"></div>
     </section>
   </div>
 
   <section class="card" style="margin-top: 12px;">
     <h2>Outgoing</h2>
     <button class="secondary" id="refreshOutgoing">Refresh Outgoing</button>
-    <pre id="outgoingResult"></pre>
+    <div id="outgoingResult" class="list"></div>
   </section>
 
   <script>
@@ -155,6 +162,70 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
 
     function pretty(value) {
       return JSON.stringify(value, null, 2);
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function toLocalDate(value) {
+      if (!value) return "";
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    }
+
+    function renderEmpty(target, text) {
+      target.innerHTML = "<div class=\"muted\">" + escapeHTML(text) + "</div>";
+    }
+
+    function renderError(target, err) {
+      target.innerHTML = "<div class=\"error\">" + escapeHTML(String(err)) + "</div>";
+    }
+
+    function renderIncomingList(target, items) {
+      if (!Array.isArray(items) || items.length === 0) {
+        renderEmpty(target, "No incoming messages.");
+        return;
+      }
+      target.innerHTML = items.map((item) => {
+        const sender = item.sender || "-";
+        const preview = item.contentPreview || "";
+        const receivedAt = toLocalDate(item.receivedAt);
+        const id = item.id || "";
+        return "<article class=\"item\">"
+          + "<div class=\"item-top\"><span class=\"tag\">Incoming</span><span>" + escapeHTML(receivedAt) + "</span></div>"
+          + "<p class=\"item-title\">From: " + escapeHTML(sender) + "</p>"
+          + "<div class=\"item-preview\">" + escapeHTML(preview) + "</div>"
+          + "<div class=\"muted\">id: " + escapeHTML(id) + "</div>"
+          + "</article>";
+      }).join("");
+    }
+
+    function renderOutgoingList(target, items) {
+      if (!Array.isArray(items) || items.length === 0) {
+        renderEmpty(target, "No outgoing messages.");
+        return;
+      }
+      target.innerHTML = items.map((item) => {
+        const state = item.state || "-";
+        const phone = Array.isArray(item.phoneNumbers) && item.phoneNumbers.length > 0
+          ? item.phoneNumbers.join(", ")
+          : ((Array.isArray(item.recipients) && item.recipients[0] && item.recipients[0].phoneNumber) || "-");
+        const preview = item.contentPreview || item.message || "";
+        const sentAt = item.states && (item.states.Delivered || item.states.Sent || item.states.Processed || item.states.Pending);
+        return "<article class=\"item\">"
+          + "<div class=\"item-top\"><span class=\"tag\">" + escapeHTML(state) + "</span><span>" + escapeHTML(toLocalDate(sentAt)) + "</span></div>"
+          + "<p class=\"item-title\">To: " + escapeHTML(phone) + "</p>"
+          + "<div class=\"item-preview\">" + escapeHTML(preview || "[no content]") + "</div>"
+          + "<div class=\"muted\">id: " + escapeHTML(item.id || "") + (item.isHashed ? " | hashed" : "") + "</div>"
+          + "</article>";
+      }).join("");
     }
 
     async function request(path, options = {}) {
@@ -185,23 +256,23 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
 
     async function refreshIncoming() {
       const target = document.getElementById("incomingResult");
-      target.textContent = "Loading...";
+      target.innerHTML = "<div class=\"muted\">Loading...</div>";
       try {
         const data = await request("/incoming?limit=25");
-        target.textContent = pretty(data);
+        renderIncomingList(target, data);
       } catch (err) {
-        target.textContent = String(err);
+        renderError(target, err);
       }
     }
 
     async function refreshOutgoing() {
       const target = document.getElementById("outgoingResult");
-      target.textContent = "Loading...";
+      target.innerHTML = "<div class=\"muted\">Loading...</div>";
       try {
         const data = await request("/messages?limit=25");
-        target.textContent = pretty(data);
+        renderOutgoingList(target, data);
       } catch (err) {
-        target.textContent = String(err);
+        renderError(target, err);
       }
     }
 
@@ -236,8 +307,8 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
     document.getElementById("refreshOutgoing").addEventListener("click", refreshOutgoing);
     document.getElementById("sendBtn").addEventListener("click", sendSMS);
 
-    document.getElementById("incomingResult").textContent = "Fill API Auth and click Refresh Incoming.";
-    document.getElementById("outgoingResult").textContent = "Fill API Auth and click Refresh Outgoing.";
+    renderEmpty(document.getElementById("incomingResult"), "Fill API Auth and click Refresh Incoming.");
+    renderEmpty(document.getElementById("outgoingResult"), "Fill API Auth and click Refresh Outgoing.");
   </script>
 </body>
 </html>`)

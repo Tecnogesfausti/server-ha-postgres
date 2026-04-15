@@ -53,6 +53,7 @@ type MessageStateDTO struct {
 	IsEncrypted bool                        `json:"isEncrypted"`
 	Recipients  []smsgateway.RecipientState `json:"recipients"`
 	States      map[string]time.Time        `json:"states"`
+	ContentPreview string                   `json:"contentPreview,omitempty"`
 
 	Message      string                 `json:"message,omitempty"`
 	TextMessage  *smsgateway.TextMessage `json:"textMessage,omitempty"`
@@ -85,6 +86,13 @@ func MessageStateToDTO(state messages.MessageStateOut) MessageStateDTO {
 	}
 	if len(state.PhoneNumbers) > 0 {
 		dto.PhoneNumbers = state.PhoneNumbers
+	}
+	if dto.Message != "" {
+		dto.ContentPreview = dto.Message
+	} else if dto.DataMessage != nil {
+		dto.ContentPreview = "[DATA message]"
+	} else if state.IsHashed {
+		dto.ContentPreview = "[HASHED]"
 	}
 
 	return dto

@@ -43,7 +43,7 @@ This server acts as the backend component of the [SMSGate](https://github.com/ca
 ## Current branch release
 
 - Branch: `postgres-ha-port`
-- Release: `1.29.3-tecnoges-incoming.3`
+- Release: `1.29.3-tecnoges-incoming.4`
 - Notes: see [RELEASES.md](RELEASES.md)
 
 ## Prerequisites
