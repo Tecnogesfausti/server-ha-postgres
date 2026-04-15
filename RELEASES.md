@@ -1,5 +1,17 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.2
+
+Date: 2026-04-15
+
+Changes:
+- Adds built-in web UI at `/ui` protected by Basic auth.
+- UI supports:
+  - listing incoming messages (`/api/3rdparty/v1/incoming`)
+  - listing outgoing messages (`/api/3rdparty/v1/messages`)
+  - sending SMS (`POST /api/3rdparty/v1/messages`)
+- Keeps API behavior from `1.29.3-tecnoges-incoming.1`.
+
 ## 1.29.3-tecnoges-incoming.1
 
 Date: 2026-04-14
