@@ -112,6 +112,15 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
 
   <div class="row">
     <section class="card">
+      <h2>API Auth</h2>
+      <label for="authUser">Username</label>
+      <input id="authUser" placeholder="KN_UH0" />
+      <label for="authPass">Password</label>
+      <input id="authPass" type="password" placeholder="password" />
+      <p class="muted">Used for /api/3rdparty/v1 calls from this UI.</p>
+    </section>
+
+    <section class="card">
       <h2>Send SMS</h2>
       <label for="phone">Phone Number</label>
       <input id="phone" placeholder="+34600111222" />
@@ -142,12 +151,19 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
     }
 
     async function request(path, options = {}) {
+      const authUser = document.getElementById("authUser").value.trim();
+      const authPass = document.getElementById("authPass").value;
+      const headers = {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      };
+      if (authUser) {
+        headers["Authorization"] = "Basic " + btoa(authUser + ":" + authPass);
+      }
+
       const res = await fetch(apiBase + path, {
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {}),
-        },
+        headers: headers,
         credentials: "same-origin",
       });
       const contentType = res.headers.get("content-type") || "";
