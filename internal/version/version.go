@@ -2,7 +2,7 @@ package version
 
 import "strconv"
 
-const notSet string = "1.29.3-tecnoges-incoming.2"
+const notSet string = "1.29.3-tecnoges-incoming.3"
 
 // This information will be collected when build, by `-ldflags "-X main.appVersion=0.1"`.
 //

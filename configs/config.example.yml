@@ -35,7 +35,7 @@ sse:
   keep_alive_period_seconds: 15 # SSE keep alive period in seconds [SSE__KEEP_ALIVE_PERIOD_SECONDS]
 messages:
   cache_ttl_seconds: 300 # message cache TTL in seconds [MESSAGES__CACHE_TTL_SECONDS]
-  hashing_interval_seconds: 60 # real-time message hashing interval in seconds [MESSAGES__HASHING_INTERVAL_SECONDS]
+  hashing_interval_seconds: 60 # real-time message hashing interval in seconds (set 0 to disable hashing and keep full content) [MESSAGES__HASHING_INTERVAL_SECONDS]
 cache: # cache config
   url: memory:// # cache url (memory:// or redis://) [CACHE__URL]
 pubsub: # pubsub config

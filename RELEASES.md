@@ -1,5 +1,18 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.3
+
+Date: 2026-04-15
+
+Changes:
+- `GET /api/3rdparty/v1/messages` and `GET /api/3rdparty/v1/messages/{id}` now include plain outgoing payload fields when available:
+  - `message`
+  - `textMessage`
+  - `dataMessage`
+  - `phoneNumbers`
+- Hashed messages keep returning metadata/state, but plain content cannot be restored once already hashed.
+- Message hashing can now be disabled by setting `MESSAGES__HASHING_INTERVAL_SECONDS=0` (used to preserve content for future API consumers and UI).
+
 ## 1.29.3-tecnoges-incoming.2
 
 Date: 2026-04-15

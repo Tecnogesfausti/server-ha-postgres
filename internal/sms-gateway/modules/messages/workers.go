@@ -34,6 +34,12 @@ func newHashingWorker(config Config, messages *Repository, logger *zap.Logger) *
 }
 
 func (t *hashingWorker) Run(ctx context.Context) {
+	if t.interval <= 0 {
+		t.logger.Info("Message hashing task disabled (interval <= 0)")
+		<-ctx.Done()
+		return
+	}
+
 	t.logger.Info("Starting hashing task...")
 	ticker := time.NewTicker(t.interval)
 	defer ticker.Stop()

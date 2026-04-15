@@ -33,6 +33,11 @@ type MessageStateIn struct {
 	State      ProcessingState             `json:"state"`      // State
 	Recipients []smsgateway.RecipientState `json:"recipients"` // Recipients states
 	States     map[string]time.Time        `json:"states"`     // History of states
+
+	Message      string              `json:"message"`       // Plain text message when available
+	TextMessage  *TextMessageContent `json:"text_message"`  // Plain text payload when available
+	DataMessage  *DataMessageContent `json:"data_message"`  // Plain binary payload when available
+	PhoneNumbers []string            `json:"phone_numbers"` // Plain recipients when available
 }
 
 type MessageStateOut struct {

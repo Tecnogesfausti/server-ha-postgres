@@ -320,7 +320,7 @@ func (s *Service) recipientsStateToModel(input []smsgateway.RecipientState, hash
 }
 
 func modelToMessageState(input Message) MessageStateOut {
-	return MessageStateOut{
+	dto := MessageStateOut{
 		DeviceID:    input.DeviceID,
 		IsHashed:    input.IsHashed,
 		IsEncrypted: input.IsEncrypted,
@@ -329,6 +329,10 @@ func modelToMessageState(input Message) MessageStateOut {
 			ID:         input.ExtID,
 			State:      input.State,
 			Recipients: slices.Map(input.Recipients, modelToRecipientState),
+			PhoneNumbers: slices.Map(
+				input.Recipients,
+				func(recipient MessageRecipient) string { return recipient.PhoneNumber },
+			),
 			States: slices.Associate(
 				input.States,
 				func(state MessageState) string { return string(state.State) },
@@ -336,6 +340,22 @@ func modelToMessageState(input Message) MessageStateOut {
 			),
 		},
 	}
+
+	if input.IsHashed {
+		dto.MessageStateIn.PhoneNumbers = nil
+		return dto
+	}
+
+	if textContent, err := input.GetTextContent(); err == nil && textContent != nil {
+		dto.MessageStateIn.Message = textContent.Text
+		dto.MessageStateIn.TextMessage = textContent
+	}
+
+	if dataContent, err := input.GetDataContent(); err == nil && dataContent != nil {
+		dto.MessageStateIn.DataMessage = dataContent
+	}
+
+	return dto
 }
 
 func modelToRecipientState(input MessageRecipient) smsgateway.RecipientState {
