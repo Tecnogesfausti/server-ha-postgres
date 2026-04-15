@@ -229,8 +229,8 @@ var uiHTML = fmt.Sprintf(`<!doctype html>
     document.getElementById("refreshOutgoing").addEventListener("click", refreshOutgoing);
     document.getElementById("sendBtn").addEventListener("click", sendSMS);
 
-    refreshIncoming();
-    refreshOutgoing();
+    document.getElementById("incomingResult").textContent = "Fill API Auth and click Refresh Incoming.";
+    document.getElementById("outgoingResult").textContent = "Fill API Auth and click Refresh Outgoing.";
   </script>
 </body>
 </html>`)
