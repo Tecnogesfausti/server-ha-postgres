@@ -222,6 +222,69 @@ var uiST904LHTML = `<!doctype html>
       };
     }
 
+    function keyCountRconf(text) {
+      const t = String(text || "").toUpperCase();
+      const keys = ["ID:", "UP:", "U1:", "U2:", "U3:", "MODE:", "APN:", "IP:", "GPRS UPLOAD TIME:", "TIME ZONE:"];
+      return keys.filter((k) => t.includes(k)).length;
+    }
+
+    function parseMs(v) {
+      const t = new Date(v || "").getTime();
+      return Number.isNaN(t) ? 0 : t;
+    }
+
+    function joinSmsParts(a, b) {
+      const left = String(a || "").trim();
+      const right = String(b || "").trim();
+      if (!left) return right;
+      if (!right) return left;
+      if (left.endsWith(",") || left.endsWith(";")) return left + " " + right;
+      return left + ", " + right;
+    }
+
+    function shouldMergeIncomingParts(prev, next) {
+      if (normalizePhone(prev.sender) !== normalizePhone(next.sender)) return false;
+
+      const deltaMs = Math.abs(parseMs(next.receivedAt) - parseMs(prev.receivedAt));
+      if (deltaMs > 120000) return false;
+
+      const prevText = prev.contentPreview || "";
+      const nextText = next.contentPreview || "";
+      const prevKeys = keyCountRconf(prevText);
+      const nextKeys = keyCountRconf(nextText);
+      const mergedText = joinSmsParts(prevText, nextText);
+      const mergedKeys = keyCountRconf(mergedText);
+
+      if (mergedKeys < 4) return false;
+      if (prevKeys >= 4 && nextKeys >= 4) return false;
+      return true;
+    }
+
+    function mergeIncomingParts(items) {
+      const asc = [...items].sort((a, b) => String(a.receivedAt).localeCompare(String(b.receivedAt)));
+      const merged = [];
+
+      asc.forEach((item) => {
+        if (merged.length === 0) {
+          merged.push({ ...item, _mergedCount: 1, _mergedIds: [item.id] });
+          return;
+        }
+        const last = merged[merged.length - 1];
+        if (!shouldMergeIncomingParts(last, item)) {
+          merged.push({ ...item, _mergedCount: 1, _mergedIds: [item.id] });
+          return;
+        }
+
+        last.contentPreview = joinSmsParts(last.contentPreview, item.contentPreview);
+        last.receivedAt = item.receivedAt;
+        last._mergedCount = (last._mergedCount || 1) + 1;
+        last._mergedIds = (last._mergedIds || []).concat([item.id]);
+        last.id = last._mergedIds.join("+");
+      });
+
+      return merged.sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
+    }
+
     function renderRconfBody(text) {
       const p = parseRconf(text);
       const row = (k, v) => "<div class=\"kv-row\"><div class=\"kv-key\">" + esc(k) + "</div><div class=\"kv-val\">" + esc(v || "-") + "</div></div>";
@@ -265,6 +328,7 @@ var uiST904LHTML = `<!doctype html>
         const incoming = [].concat(...incomingBatches)
           .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i)
           .sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
+        const incomingMerged = mergeIncomingParts(incoming);
 
         const outgoingAll = await request("/messages?limit=80");
         const outgoing = outgoingAll.filter((item) => {
@@ -275,12 +339,12 @@ var uiST904LHTML = `<!doctype html>
 
         renderList(
           $("incomingList"),
-          incoming,
+          incomingMerged,
           "No incoming replies for tracker.",
           (item) => "<article class=\"item\">"
             + "<div class=\"item-top\"><span class=\"tag\">IN</span><span>" + esc(toDate(item.receivedAt)) + "</span></div>"
             + renderIncomingBody(item.contentPreview || "")
-            + "<div class=\"muted\">from " + esc(item.sender || "-") + " | id " + esc(item.id || "") + "</div>"
+            + "<div class=\"muted\">from " + esc(item.sender || "-") + " | id " + esc(item.id || "") + ((item._mergedCount || 1) > 1 ? (" | merged parts: " + esc(item._mergedCount)) : "") + "</div>"
             + "</article>"
         );
 

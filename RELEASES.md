@@ -1,5 +1,13 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.9
+
+Date: 2026-04-16
+
+Changes:
+- `/ui/st-904l` now merges multipart incoming SMS parts from the same sender (within short time window) before rendering.
+- Improves long `RCONF` replies that arrive split in 2+ SMS so parsing/visual decode works as one message.
+
 ## 1.29.3-tecnoges-incoming.8
 
 Date: 2026-04-16
