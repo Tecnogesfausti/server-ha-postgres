@@ -89,24 +89,27 @@ var uiST904LHTML = `<!doctype html>
     const apiBase = window.location.protocol + "//" + window.location.host + "/api/3rdparty/v1";
     let autoTimer = null;
     const commandCatalog = [
-      { key: "RCONF", label: "RCONF - read config", template: "RCONF", example: "RCONF", description: "Request tracker runtime configuration.", notes: "Expected reply contains APN, server and mode data." },
-      { key: "POS", label: "6690000 - position", template: "6690000", example: "6690000", description: "Request immediate location reply.", notes: "Usually returns link or coordinates." },
-      { key: "MODE_GPRS", label: "7100000 - set GPRS mode", template: "7100000", example: "7100000", description: "Switch tracker to GPRS mode.", notes: "Firmware may require reboot/report command afterwards." },
-      { key: "MODE_SMS", label: "7000000 - set SMS mode", template: "7000000", example: "7000000", description: "Switch tracker to SMS mode.", notes: "Useful for pure SMS workflows." },
-      { key: "ADMIN_ADD", label: "Admin number add", template: "{ADMIN_PHONE}0000 1", example: "346001112220000 1", description: "Add admin/control phone number.", notes: "Use phone without + if firmware expects digits only." },
-      { key: "ADMIN_REMOVE", label: "Admin number remove", template: "D{ADMIN_PHONE}0000", example: "D346001112220000", description: "Delete admin number.", notes: "Command prefix may vary by firmware revision." },
-      { key: "RESET", label: "RESET - restart tracker", template: "RESET", example: "RESET", description: "Soft reboot tracker.", notes: "Tracker may go offline for some seconds." },
-      { key: "APN_SET", label: "8030000 - set APN", template: "8030000 {APN}", example: "8030000 internet", description: "Set APN only.", notes: "Carrier dependent." },
-      { key: "APN_USER_PASS", label: "APN user/pass", template: "8030000 {APN} {APN_USER} {APN_PASS}", example: "8030000 iot.movistar.es movistar movistar", description: "Set APN with credentials.", notes: "Use only when operator requires auth." },
-      { key: "SERVER_SET", label: "8040000 - server host/port", template: "8040000 {HOST} {PORT}", example: "8040000 47.254.77.28 8090", description: "Set TCP server endpoint.", notes: "Needed for platform mode." },
-      { key: "TIMEZONE", label: "8960000 - timezone", template: "8960000 {TZ}", example: "8960000 E00", description: "Set timezone.", notes: "Common values: E00, E01, W03 etc." },
-      { key: "UPLOAD_INTERVAL", label: "Timer upload", template: "TIMER,{SECONDS}#", example: "TIMER,30#", description: "Set periodic upload/report interval.", notes: "Firmware families differ: TIMER command may be required on some variants." },
-      { key: "SPEED_ALARM", label: "1220000 - speed alarm", template: "1220000 {KMH}", example: "1220000 090", description: "Set overspeed alarm threshold.", notes: "3 digits recommended (e.g. 070)." },
-      { key: "VIBRATION_ALARM", label: "1810000 - vibration alarm", template: "1810000T{LEVEL}", example: "1810000T10", description: "Set vibration/shock alarm sensitivity.", notes: "Leave tracker static for calibration after set." },
-      { key: "MOVE_ALARM", label: "Movement alarm", template: "MOVE{PASSWORD}", example: "MOVE0000", description: "Enable movement alarm.", notes: "Exact syntax varies; check live response and adjust." },
-      { key: "LOW_POWER_ALARM", label: "Low battery alarm", template: "LOWBAT{PASSWORD}", example: "LOWBAT0000", description: "Enable low battery alert.", notes: "Firmware dependent keyword." },
-      { key: "CHECK_SIM", label: "CHECK - SIM/network info", template: "CHECK", example: "CHECK", description: "Request SIM and network status.", notes: "Useful for troubleshooting no-report cases." },
-      { key: "FACTORY", label: "FACTORY - reset defaults", template: "FACTORY", example: "FACTORY", description: "Factory reset tracker settings.", notes: "High impact. You must reconfigure APN/admin/server after this." }
+      { key: "POS_SMS", label: "6690000 - SMS tracking", template: "6690000", example: "6690000", description: "Solicita posición por SMS (link Google Maps).", notes: "Comando directo al SIM del tracker." },
+      { key: "ADMIN_SET_1", label: "Admin set #1", template: "{ADMIN_PHONE}0000 1", example: "132657901800000 1", description: "Define número administrador principal.", notes: "Formato exacto: phone + password + espacio + índice." },
+      { key: "VOICE_MONITOR_66", label: "66 - Voice monitor callback", template: "66", example: "66", description: "Tracker devuelve llamada al número admin.", notes: "Solo funciona si ya existe admin number configurado." },
+      { key: "ADMIN_CANCEL_D101", label: "D101# - admin cancel", template: "D101#", example: "D101#", description: "Cancela número admin (según manual).", notes: "La sintaxis puede variar por firmware; confirmar respuesta SET OK!." },
+      { key: "SPEED_SET", label: "1220000 070 - overspeed set", template: "1220000 070", example: "1220000 070", description: "Alarma exceso velocidad a 70 km/h.", notes: "Usa 3 dígitos para velocidad (070, 090, etc.)." },
+      { key: "SPEED_CANCEL", label: "1220000 0 - overspeed off", template: "1220000 0", example: "1220000 0", description: "Desactiva alarma de velocidad.", notes: "Debe responder SET OK!." },
+      { key: "SHAKE_SET", label: "1810000T10 - shake alarm set", template: "1810000T10", example: "1810000T10", description: "Activa alarma de vibración/golpe.", notes: "Tras activar, dejar el tracker quieto 5 minutos." },
+      { key: "SHAKE_CANCEL", label: "1800000 - shake alarm off", template: "1800000", example: "1800000", description: "Desactiva alarma de vibración.", notes: "Debe responder SET OK!." },
+      { key: "MODE_WORK", label: "WORK0000 - keep working mode", template: "WORK0000", example: "WORK0000", description: "Modo trabajo continuo.", notes: "Mayor consumo batería (aprox 18-24h)." },
+      { key: "MODE_MOVE", label: "MOVE0000 - move mode", template: "MOVE0000", example: "MOVE0000", description: "Modo trabajo al detectar movimiento.", notes: "Modo fábrica habitual; mejor autonomía." },
+      { key: "MODE_STANDBY", label: "STANDBY0000 - standby mode", template: "STANDBY0000", example: "STANDBY0000", description: "Modo standby; despierta por SMS/llamada.", notes: "Autonomía superior según manual." },
+      { key: "RCONF", label: "RCONF - read config", template: "RCONF", example: "RCONF", description: "Solicita configuración actual del equipo.", notes: "Útil para validar APN, servidor y modo." },
+      { key: "MODE_GPRS", label: "7100000 - set GPRS mode", template: "7100000", example: "7100000", description: "Cambia a modo GPRS.", notes: "Puede requerir comando adicional de reporte." },
+      { key: "MODE_SMS", label: "7000000 - set SMS mode", template: "7000000", example: "7000000", description: "Cambia a modo SMS.", notes: "Adecuado para uso solo por comandos SMS." },
+      { key: "RESET", label: "RESET - restart tracker", template: "RESET", example: "RESET", description: "Reinicio del tracker.", notes: "Puede quedar offline unos segundos." },
+      { key: "APN_SET", label: "8030000 - set APN", template: "8030000 {APN}", example: "8030000 internet", description: "Configura APN.", notes: "Depende de operador SIM." },
+      { key: "APN_USER_PASS", label: "APN user/pass", template: "8030000 {APN} {APN_USER} {APN_PASS}", example: "8030000 iot.movistar.es movistar movistar", description: "APN con usuario/clave.", notes: "Solo si el operador exige autenticación." },
+      { key: "SERVER_SET", label: "8040000 - server host/port", template: "8040000 {HOST} {PORT}", example: "8040000 47.254.77.28 8090", description: "Configura host/puerto servidor.", notes: "Úsalo para modo plataforma TCP." },
+      { key: "TIMEZONE", label: "8960000 - timezone", template: "8960000 {TZ}", example: "8960000 E00", description: "Configura zona horaria.", notes: "Ejemplos: E00, E01, W03." },
+      { key: "CHECK_SIM", label: "CHECK - SIM/network info", template: "CHECK", example: "CHECK", description: "Consulta estado SIM/red.", notes: "Útil para diagnosticar sin datos." },
+      { key: "FACTORY", label: "FACTORY - reset defaults", template: "FACTORY", example: "FACTORY", description: "Reset a valores de fábrica.", notes: "Impacto alto: hay que reconfigurar todo." }
     ];
 
     function $(id) { return document.getElementById(id); }
