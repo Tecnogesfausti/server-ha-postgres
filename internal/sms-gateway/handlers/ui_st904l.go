@@ -13,7 +13,7 @@ var uiST904LHTML = `<!doctype html>
     .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
     label { display: block; font-size: 12px; margin: 8px 0 4px; color: #4b5563; }
-    input, textarea, button { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; font-size: 14px; }
+    input, textarea, button, select { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; font-size: 14px; }
     textarea { min-height: 70px; resize: vertical; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
     .row > button { flex: 1 1 130px; }
@@ -25,11 +25,14 @@ var uiST904LHTML = `<!doctype html>
     .item-main { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
     .tag { background: #e5e7eb; border-radius: 999px; padding: 2px 6px; font-size: 11px; color: #111827; }
     pre { background: #0b1020; color: #e5e7eb; border-radius: 8px; padding: 10px; overflow: auto; max-height: 180px; }
+    .doc { border: 1px dashed #d1d5db; border-radius: 8px; padding: 8px; background: #f9fafb; margin-top: 8px; }
+    .doc p { margin: 6px 0; font-size: 13px; }
+    .doc code { background: #e5e7eb; padding: 1px 4px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>ST-904L Command Console</h1>
-  <p class="muted">Route: /ui/st-904l. Usa la API 3rdparty existente para enviar comandos SMS y leer respuestas.</p>
+  <p class="muted">Route: /ui/st-904l. Catálogo precargado de comandos ST-904L/ST-904LA y envío por SMS gateway.</p>
 
   <div class="grid">
     <section class="card">
@@ -48,13 +51,17 @@ var uiST904LHTML = `<!doctype html>
 
     <section class="card">
       <h2>Send Command</h2>
+      <label for="commandPreset">Command Catalog</label>
+      <select id="commandPreset"></select>
+      <div class="doc">
+        <p><strong id="docTitle">-</strong></p>
+        <p id="docDescription" class="muted">Select a command to see documentation.</p>
+        <p><strong>Template:</strong> <code id="docTemplate">-</code></p>
+        <p><strong>Example:</strong> <code id="docExample">-</code></p>
+        <p class="muted" id="docNotes"></p>
+      </div>
       <label for="commandText">SMS Command</label>
       <textarea id="commandText" placeholder="RCONF"></textarea>
-      <div class="row">
-        <button class="secondary quick" data-cmd="RCONF">RCONF</button>
-        <button class="secondary quick" data-cmd="6690000">6690000</button>
-        <button class="secondary quick" data-cmd="7100000">7100000</button>
-      </div>
       <button id="sendCommand">Send To Tracker</button>
       <pre id="sendResult"></pre>
     </section>
@@ -81,6 +88,26 @@ var uiST904LHTML = `<!doctype html>
   <script>
     const apiBase = window.location.protocol + "//" + window.location.host + "/api/3rdparty/v1";
     let autoTimer = null;
+    const commandCatalog = [
+      { key: "RCONF", label: "RCONF - read config", template: "RCONF", example: "RCONF", description: "Request tracker runtime configuration.", notes: "Expected reply contains APN, server and mode data." },
+      { key: "POS", label: "6690000 - position", template: "6690000", example: "6690000", description: "Request immediate location reply.", notes: "Usually returns link or coordinates." },
+      { key: "MODE_GPRS", label: "7100000 - set GPRS mode", template: "7100000", example: "7100000", description: "Switch tracker to GPRS mode.", notes: "Firmware may require reboot/report command afterwards." },
+      { key: "MODE_SMS", label: "7000000 - set SMS mode", template: "7000000", example: "7000000", description: "Switch tracker to SMS mode.", notes: "Useful for pure SMS workflows." },
+      { key: "ADMIN_ADD", label: "Admin number add", template: "{ADMIN_PHONE}0000 1", example: "346001112220000 1", description: "Add admin/control phone number.", notes: "Use phone without + if firmware expects digits only." },
+      { key: "ADMIN_REMOVE", label: "Admin number remove", template: "D{ADMIN_PHONE}0000", example: "D346001112220000", description: "Delete admin number.", notes: "Command prefix may vary by firmware revision." },
+      { key: "RESET", label: "RESET - restart tracker", template: "RESET", example: "RESET", description: "Soft reboot tracker.", notes: "Tracker may go offline for some seconds." },
+      { key: "APN_SET", label: "8030000 - set APN", template: "8030000 {APN}", example: "8030000 internet", description: "Set APN only.", notes: "Carrier dependent." },
+      { key: "APN_USER_PASS", label: "APN user/pass", template: "8030000 {APN} {APN_USER} {APN_PASS}", example: "8030000 iot.movistar.es movistar movistar", description: "Set APN with credentials.", notes: "Use only when operator requires auth." },
+      { key: "SERVER_SET", label: "8040000 - server host/port", template: "8040000 {HOST} {PORT}", example: "8040000 47.254.77.28 8090", description: "Set TCP server endpoint.", notes: "Needed for platform mode." },
+      { key: "TIMEZONE", label: "8960000 - timezone", template: "8960000 {TZ}", example: "8960000 E00", description: "Set timezone.", notes: "Common values: E00, E01, W03 etc." },
+      { key: "UPLOAD_INTERVAL", label: "Timer upload", template: "TIMER,{SECONDS}#", example: "TIMER,30#", description: "Set periodic upload/report interval.", notes: "Firmware families differ: TIMER command may be required on some variants." },
+      { key: "SPEED_ALARM", label: "1220000 - speed alarm", template: "1220000 {KMH}", example: "1220000 090", description: "Set overspeed alarm threshold.", notes: "3 digits recommended (e.g. 070)." },
+      { key: "VIBRATION_ALARM", label: "1810000 - vibration alarm", template: "1810000T{LEVEL}", example: "1810000T10", description: "Set vibration/shock alarm sensitivity.", notes: "Leave tracker static for calibration after set." },
+      { key: "MOVE_ALARM", label: "Movement alarm", template: "MOVE{PASSWORD}", example: "MOVE0000", description: "Enable movement alarm.", notes: "Exact syntax varies; check live response and adjust." },
+      { key: "LOW_POWER_ALARM", label: "Low battery alarm", template: "LOWBAT{PASSWORD}", example: "LOWBAT0000", description: "Enable low battery alert.", notes: "Firmware dependent keyword." },
+      { key: "CHECK_SIM", label: "CHECK - SIM/network info", template: "CHECK", example: "CHECK", description: "Request SIM and network status.", notes: "Useful for troubleshooting no-report cases." },
+      { key: "FACTORY", label: "FACTORY - reset defaults", template: "FACTORY", example: "FACTORY", description: "Factory reset tracker settings.", notes: "High impact. You must reconfigure APN/admin/server after this." }
+    ];
 
     function $(id) { return document.getElementById(id); }
     function pretty(v) { return JSON.stringify(v, null, 2); }
@@ -100,6 +127,28 @@ var uiST904LHTML = `<!doctype html>
     }
     function normalizePhone(v) {
       return String(v || "").replaceAll(/\s+/g, "").replaceAll(/^\+/, "");
+    }
+
+    function initCommandCatalog() {
+      const select = $("commandPreset");
+      select.innerHTML = commandCatalog.map((item) =>
+        "<option value=\"" + esc(item.key) + "\">" + esc(item.label) + "</option>"
+      ).join("");
+      select.addEventListener("change", () => applyPreset(select.value));
+      if (commandCatalog.length > 0) {
+        applyPreset(commandCatalog[0].key);
+      }
+    }
+
+    function applyPreset(key) {
+      const item = commandCatalog.find((v) => v.key === key);
+      if (!item) return;
+      $("docTitle").textContent = item.label;
+      $("docDescription").textContent = item.description;
+      $("docTemplate").textContent = item.template;
+      $("docExample").textContent = item.example;
+      $("docNotes").textContent = "Note: " + item.notes;
+      $("commandText").value = item.template;
     }
 
     async function request(path, options = {}) {
@@ -192,7 +241,7 @@ var uiST904LHTML = `<!doctype html>
 
       $("sendResult").textContent = "Sending...";
       try {
-        const payload = { phoneNumbers: [phone], textMessage: { text }, withDeliveryReport: true };
+        const payload = { phoneNumbers: [phone], textMessage: { text: text }, withDeliveryReport: true };
         const data = await request("/messages", { method: "POST", body: JSON.stringify(payload) });
         $("sendResult").textContent = pretty(data);
         await refreshTrackerTimeline();
@@ -230,10 +279,8 @@ var uiST904LHTML = `<!doctype html>
     $("toggleAuto").addEventListener("click", toggleAuto);
     $("saveSession").addEventListener("click", saveSession);
     $("loadSession").addEventListener("click", loadSession);
-    document.querySelectorAll(".quick").forEach((btn) => {
-      btn.addEventListener("click", () => { $("commandText").value = btn.dataset.cmd || ""; });
-    });
 
+    initCommandCatalog();
     loadSession();
     $("incomingList").innerHTML = "<div class=\"muted\">Set tracker phone and click Refresh.</div>";
     $("outgoingList").innerHTML = "<div class=\"muted\">Set tracker phone and click Refresh.</div>";

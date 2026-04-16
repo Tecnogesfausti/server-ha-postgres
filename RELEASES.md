@@ -1,5 +1,14 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.7
+
+Date: 2026-04-16
+
+Changes:
+- `/ui/st-904l` now includes a preloaded command catalog with documentation panel.
+- Selecting a command auto-fills the editable SMS payload template.
+- Includes common ST-904L/ST-904LA commands with examples and operational notes.
+
 ## 1.29.3-tecnoges-incoming.6
 
 Date: 2026-04-16
