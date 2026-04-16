@@ -1,5 +1,13 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.8
+
+Date: 2026-04-16
+
+Changes:
+- `/ui/st-904l` now decodes `RCONF` replies into structured fields (model, ID, mode, APN, IP:port, upload interval, timezone, status flags).
+- Keeps raw RCONF text visible under the parsed block for audit/debug.
+
 ## 1.29.3-tecnoges-incoming.7
 
 Date: 2026-04-16

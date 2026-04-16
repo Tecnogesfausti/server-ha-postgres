@@ -23,6 +23,10 @@ var uiST904LHTML = `<!doctype html>
     .item { border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa; padding: 8px; }
     .item-top { display: flex; justify-content: space-between; font-size: 12px; color: #4b5563; }
     .item-main { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+    .kv { margin-top: 6px; display: grid; gap: 4px; }
+    .kv-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; font-size: 12px; align-items: start; }
+    .kv-key { color: #6b7280; }
+    .kv-val { color: #111827; word-break: break-word; }
     .tag { background: #e5e7eb; border-radius: 999px; padding: 2px 6px; font-size: 11px; color: #111827; }
     pre { background: #0b1020; color: #e5e7eb; border-radius: 8px; padding: 10px; overflow: auto; max-height: 180px; }
     .doc { border: 1px dashed #d1d5db; border-radius: 8px; padding: 8px; background: #f9fafb; margin-top: 8px; }
@@ -181,6 +185,69 @@ var uiST904LHTML = `<!doctype html>
       return states.Delivered || states.Sent || states.Processed || states.Pending || "";
     }
 
+    function looksLikeRconf(text) {
+      const t = String(text || "");
+      return t.includes("ID:") && t.includes("MODE:") && t.includes("APN:");
+    }
+
+    function parseRconf(text) {
+      const out = {};
+      const chunks = String(text || "").split(",");
+      chunks.forEach((chunk) => {
+        const c = chunk.trim();
+        const i = c.indexOf(":");
+        if (i <= 0) return;
+        const key = c.slice(0, i).trim();
+        const val = c.slice(i + 1).trim();
+        if (!key || !val) return;
+        out[key.toUpperCase()] = val;
+      });
+      const flags = [];
+      ["DAILY", "GEO FENCE", "OVER SPEED", "VOICE", "SHAKE ALARM", "SLEEP"].forEach((k) => {
+        if (out[k]) flags.push(k + ":" + out[k]);
+      });
+      return {
+        model: out["ST-904/ST-904L"] || "",
+        id: out["ID"] || "",
+        password: out["UP"] || "",
+        u1: out["U1"] || "",
+        u2: out["U2"] || "",
+        u3: out["U3"] || "",
+        mode: out["MODE"] || "",
+        apn: out["APN"] || "",
+        ip: out["IP"] || "",
+        upload: out["GPRS UPLOAD TIME"] || "",
+        timezone: out["TIME ZONE"] || "",
+        flags: flags.join(" | ")
+      };
+    }
+
+    function renderRconfBody(text) {
+      const p = parseRconf(text);
+      const row = (k, v) => "<div class=\"kv-row\"><div class=\"kv-key\">" + esc(k) + "</div><div class=\"kv-val\">" + esc(v || "-") + "</div></div>";
+      return "<div class=\"item-main\"><strong>RCONF decoded</strong></div>"
+        + "<div class=\"kv\">"
+        + row("Model", p.model)
+        + row("ID", p.id)
+        + row("Password", p.password)
+        + row("Admin U1", p.u1)
+        + row("Admin U2", p.u2)
+        + row("Admin U3", p.u3)
+        + row("Mode", p.mode)
+        + row("APN", p.apn)
+        + row("IP:Port", p.ip)
+        + row("Upload(s)", p.upload)
+        + row("Timezone", p.timezone)
+        + row("Flags", p.flags)
+        + "</div>"
+        + "<div class=\"item-main muted\">Raw: " + esc(text) + "</div>";
+    }
+
+    function renderIncomingBody(text) {
+      if (looksLikeRconf(text)) return renderRconfBody(text);
+      return "<div class=\"item-main\">" + esc(text || "") + "</div>";
+    }
+
     async function refreshTrackerTimeline() {
       const trackerPhone = $("trackerPhone").value.trim();
       const normTracker = normalizePhone(trackerPhone);
@@ -212,7 +279,7 @@ var uiST904LHTML = `<!doctype html>
           "No incoming replies for tracker.",
           (item) => "<article class=\"item\">"
             + "<div class=\"item-top\"><span class=\"tag\">IN</span><span>" + esc(toDate(item.receivedAt)) + "</span></div>"
-            + "<div class=\"item-main\">" + esc(item.contentPreview || "") + "</div>"
+            + renderIncomingBody(item.contentPreview || "")
             + "<div class=\"muted\">from " + esc(item.sender || "-") + " | id " + esc(item.id || "") + "</div>"
             + "</article>"
         );
