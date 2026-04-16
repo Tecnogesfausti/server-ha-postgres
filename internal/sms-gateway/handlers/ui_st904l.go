@@ -126,7 +126,7 @@ var uiST904LHTML = `<!doctype html>
       return d.toLocaleString();
     }
     function normalizePhone(v) {
-      return String(v || "").replaceAll(/\s+/g, "").replaceAll(/^\+/, "");
+      return String(v || "").replace(/\s+/g, "").replace(/^\+/, "");
     }
 
     function initCommandCatalog() {
