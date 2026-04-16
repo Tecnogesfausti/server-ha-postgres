@@ -6,6 +6,7 @@ type SelectFilter struct {
 	ExtID     string
 	UserID    string
 	DeviceID  string
+	Sender    string
 	Type      MessageType
 	StartDate time.Time
 	EndDate   time.Time
@@ -23,6 +24,11 @@ func (f *SelectFilter) WithUserID(userID string) *SelectFilter {
 
 func (f *SelectFilter) WithDeviceID(deviceID string) *SelectFilter {
 	f.DeviceID = deviceID
+	return f
+}
+
+func (f *SelectFilter) WithSender(sender string) *SelectFilter {
+	f.Sender = sender
 	return f
 }
 

@@ -74,6 +74,14 @@ func (h *rootHandler) registerUI(app *fiber.App) {
 	group.Get("/", func(c *fiber.Ctx) error {
 		return c.Type("html").SendString(uiHTML)
 	})
+
+	group.Get("/st-904l", func(c *fiber.Ctx) error {
+		return c.Type("html").SendString(uiST904LHTML)
+	})
+
+	group.Get("/st-904la", func(c *fiber.Ctx) error {
+		return c.Type("html").SendString(uiST904LHTML)
+	})
 }
 
 func newRootHandler(

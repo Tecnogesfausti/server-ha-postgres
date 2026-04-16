@@ -1,5 +1,13 @@
 # Releases
 
+## 1.29.3-tecnoges-incoming.6
+
+Date: 2026-04-16
+
+Changes:
+- Adds tracker-focused UI at `/ui/st-904l` (and `/ui/st-904la`) to send commands and view incoming/outgoing timeline for one tracker number.
+- Adds `sender` filter to `GET /api/3rdparty/v1/incoming` for consumer-side filtering by source number.
+
 ## 1.29.3-tecnoges-incoming.5
 
 Date: 2026-04-15

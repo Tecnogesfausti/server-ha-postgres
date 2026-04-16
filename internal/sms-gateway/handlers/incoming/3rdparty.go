@@ -18,6 +18,7 @@ type thirdPartyGetQueryParams struct {
 	From     *time.Time `query:"from"`
 	To       *time.Time `query:"to"`
 	DeviceID string     `query:"deviceId" validate:"omitempty,min=21,max=21"`
+	Sender   string     `query:"sender" validate:"omitempty,max=64"`
 	Limit    int        `query:"limit" validate:"omitempty,min=1,max=100"`
 	Offset   int        `query:"offset" validate:"omitempty,min=0"`
 }
@@ -64,6 +65,7 @@ func (h *ThirdPartyController) get(userID string, c *fiber.Ctx) error {
 
 	filter := incomingmodule.SelectFilter{
 		DeviceID: params.DeviceID,
+		Sender:   params.Sender,
 	}
 	if params.From != nil || params.To != nil {
 		var from time.Time

@@ -42,6 +42,9 @@ func (r *Repository) Select(filter SelectFilter, options SelectOptions) ([]Messa
 	if filter.DeviceID != "" {
 		query = query.Where("incoming_messages.device_id = ?", filter.DeviceID)
 	}
+	if filter.Sender != "" {
+		query = query.Where("incoming_messages.sender = ?", filter.Sender)
+	}
 	if filter.ExtID != "" {
 		query = query.Where("incoming_messages.ext_id = ?", filter.ExtID)
 	}
