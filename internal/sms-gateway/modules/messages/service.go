@@ -177,6 +177,8 @@ func (s *Service) GetState(userID string, id string) (*MessageStateOut, error) {
 }
 
 func (s *Service) Enqueue(device models.Device, message MessageIn, opts EnqueueOptions) (*MessageStateOut, error) {
+	enqueueStartedAt := time.Now().UTC()
+
 	msg, err := s.prepareMessage(device, message, opts)
 	if err != nil {
 		return nil, err
@@ -201,6 +203,15 @@ func (s *Service) Enqueue(device models.Device, message MessageIn, opts EnqueueO
 		return state, insErr
 	}
 
+	s.logger.Info(
+		"message persisted and ready for device dispatch",
+		zap.String("user_id", device.UserID),
+		zap.String("device_id", device.ID),
+		zap.String("message_id", msg.ExtID),
+		zap.Time("enqueue_started_at", enqueueStartedAt),
+		zap.Duration("persist_elapsed", time.Since(enqueueStartedAt)),
+	)
+
 	if cacheErr := s.cache.Set(
 		context.Background(),
 		device.UserID,
@@ -212,12 +223,27 @@ func (s *Service) Enqueue(device models.Device, message MessageIn, opts EnqueueO
 	s.metrics.IncTotal(string(msg.State))
 
 	go func(userID, deviceID string) {
+		notifyStartedAt := time.Now().UTC()
+
 		if ntfErr := s.eventsSvc.Notify(userID, &deviceID, events.NewMessageEnqueuedEvent()); ntfErr != nil {
 			s.logger.Error(
 				"failed to notify device",
 				zap.Error(ntfErr),
 				zap.String("user_id", userID),
 				zap.String("device_id", deviceID),
+				zap.String("message_id", msg.ExtID),
+				zap.Time("notify_started_at", notifyStartedAt),
+				zap.Duration("notify_elapsed", time.Since(notifyStartedAt)),
+			)
+		} else {
+			s.logger.Info(
+				"device notification enqueued",
+				zap.String("user_id", userID),
+				zap.String("device_id", deviceID),
+				zap.String("message_id", msg.ExtID),
+				zap.Time("enqueue_started_at", enqueueStartedAt),
+				zap.Time("notify_started_at", notifyStartedAt),
+				zap.Duration("enqueue_to_notify_elapsed", time.Since(enqueueStartedAt)),
 			)
 		}
 	}(device.UserID, device.ID)

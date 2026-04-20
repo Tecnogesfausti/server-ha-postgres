@@ -73,6 +73,8 @@ func NewThirdPartyController(params thirdPartyControllerParams) *ThirdPartyContr
 //
 // Enqueue message.
 func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
+	requestStartedAt := time.Now().UTC()
+
 	var params thirdPartyPostQueryParams
 	if err := h.QueryParserValidator(c, &params); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
@@ -98,6 +100,15 @@ func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
 
 		return fmt.Errorf("failed to select device: %w", err)
 	}
+
+	h.Logger.Info(
+		"message enqueue request accepted for processing",
+		zap.String("user_id", userID),
+		zap.String("requested_device_id", req.DeviceID),
+		zap.String("selected_device_id", device.ID),
+		zap.Time("request_started_at", requestStartedAt),
+		zap.Duration("device_selection_elapsed", time.Since(requestStartedAt)),
+	)
 
 	var textContent *messages.TextMessageContent
 	var dataContent *messages.DataMessageContent
@@ -144,6 +155,15 @@ func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
 
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
+
+	h.Logger.Info(
+		"message enqueued in backend",
+		zap.String("user_id", userID),
+		zap.String("device_id", state.DeviceID),
+		zap.String("message_id", state.ID),
+		zap.Time("request_started_at", requestStartedAt),
+		zap.Duration("total_enqueue_elapsed", time.Since(requestStartedAt)),
+	)
 
 	location, err := c.GetRouteURL(route3rdPartyGetMessage, fiber.Map{
 		"id": state.ID,

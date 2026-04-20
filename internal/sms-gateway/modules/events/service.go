@@ -52,6 +52,8 @@ func NewService(
 }
 
 func (s *Service) Notify(userID string, deviceID *string, event Event) error {
+	notifyStartedAt := time.Now().UTC()
+
 	if event.EventType == "" {
 		return fmt.Errorf("%w: event type is empty", ErrValidationFailed)
 	}
@@ -77,6 +79,15 @@ func (s *Service) Notify(userID string, deviceID *string, event Event) error {
 	}
 
 	s.metrics.IncrementEnqueued(string(event.EventType))
+
+	s.logger.Info(
+		"event published for device delivery",
+		zap.String("user_id", userID),
+		zap.Stringp("device_id", deviceID),
+		zap.String("event_type", string(event.EventType)),
+		zap.Time("notify_started_at", notifyStartedAt),
+		zap.Duration("publish_elapsed", time.Since(notifyStartedAt)),
+	)
 
 	return nil
 }
@@ -111,6 +122,8 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) processEvent(wrapper *eventWrapper) {
+	processStartedAt := time.Now().UTC()
+
 	// Load devices from database
 	filters := []devices.SelectFilter{}
 	if wrapper.DeviceID != nil {
@@ -130,7 +143,9 @@ func (s *Service) processEvent(wrapper *eventWrapper) {
 
 	// Process each device
 	for _, device := range devices {
-		if device.PushToken != nil {
+		if device.PushToken != nil && *device.PushToken != "" {
+			pushStartedAt := time.Now().UTC()
+
 			// Device has push token, use push service
 			if enqErr := s.pushSvc.Enqueue(*device.PushToken, push.Event{
 				Type: wrapper.Event.EventType,
@@ -140,6 +155,10 @@ func (s *Service) processEvent(wrapper *eventWrapper) {
 					"failed to enqueue push notification",
 					zap.String("user_id", wrapper.UserID),
 					zap.String("device_id", device.ID),
+					zap.String("event_type", string(wrapper.Event.EventType)),
+					zap.Time("process_started_at", processStartedAt),
+					zap.Time("push_started_at", pushStartedAt),
+					zap.Duration("push_elapsed", time.Since(pushStartedAt)),
 					zap.Error(enqErr),
 				)
 				s.metrics.IncrementFailed(
@@ -148,12 +167,23 @@ func (s *Service) processEvent(wrapper *eventWrapper) {
 					FailureReasonProviderFailed,
 				)
 			} else {
+				s.logger.Info(
+					"push notification dispatched to provider",
+					zap.String("user_id", wrapper.UserID),
+					zap.String("device_id", device.ID),
+					zap.String("event_type", string(wrapper.Event.EventType)),
+					zap.Time("process_started_at", processStartedAt),
+					zap.Time("push_started_at", pushStartedAt),
+					zap.Duration("process_to_push_elapsed", time.Since(processStartedAt)),
+					zap.Duration("push_elapsed", time.Since(pushStartedAt)),
+				)
 				s.metrics.IncrementSent(string(wrapper.Event.EventType), DeliveryTypePush)
 			}
 			continue
 		}
 
 		// No push token, use SSE service
+		sseStartedAt := time.Now().UTC()
 		if sseErr := s.sseSvc.Send(device.ID, sse.Event{
 			Type: wrapper.Event.EventType,
 			Data: wrapper.Event.Data,
@@ -162,10 +192,24 @@ func (s *Service) processEvent(wrapper *eventWrapper) {
 				"failed to send SSE notification",
 				zap.String("user_id", wrapper.UserID),
 				zap.String("device_id", device.ID),
+				zap.String("event_type", string(wrapper.Event.EventType)),
+				zap.Time("process_started_at", processStartedAt),
+				zap.Time("sse_started_at", sseStartedAt),
+				zap.Duration("sse_elapsed", time.Since(sseStartedAt)),
 				zap.Error(sseErr),
 			)
 			s.metrics.IncrementFailed(string(wrapper.Event.EventType), DeliveryTypeSSE, FailureReasonProviderFailed)
 		} else {
+			s.logger.Info(
+				"sse notification delivered",
+				zap.String("user_id", wrapper.UserID),
+				zap.String("device_id", device.ID),
+				zap.String("event_type", string(wrapper.Event.EventType)),
+				zap.Time("process_started_at", processStartedAt),
+				zap.Time("sse_started_at", sseStartedAt),
+				zap.Duration("process_to_sse_elapsed", time.Since(processStartedAt)),
+				zap.Duration("sse_elapsed", time.Since(sseStartedAt)),
+			)
 			s.metrics.IncrementSent(string(wrapper.Event.EventType), DeliveryTypeSSE)
 		}
 	}
