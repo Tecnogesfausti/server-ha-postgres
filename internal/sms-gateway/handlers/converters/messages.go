@@ -7,7 +7,7 @@ import (
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/messages"
 )
 
-func MessageToMobileDTO(m messages.MessageOut) smsgateway.MobileMessage {
+func MessageToMobileDTO(m messages.Message) smsgateway.MobileMessage {
 	var message string
 	var textMessage *smsgateway.TextMessage
 	var dataMessage *smsgateway.DataMessage
@@ -46,22 +46,23 @@ func MessageToMobileDTO(m messages.MessageOut) smsgateway.MobileMessage {
 }
 
 type MessageStateDTO struct {
-	ID          string                      `json:"id"`
-	DeviceID    string                      `json:"deviceId"`
-	State       smsgateway.ProcessingState  `json:"state"`
-	IsHashed    bool                        `json:"isHashed"`
-	IsEncrypted bool                        `json:"isEncrypted"`
-	Recipients  []smsgateway.RecipientState `json:"recipients"`
-	States      map[string]time.Time        `json:"states"`
-	ContentPreview string                   `json:"contentPreview,omitempty"`
+	ID             string                      `json:"id"`
+	DeviceID       string                      `json:"deviceId"`
+	State          smsgateway.ProcessingState  `json:"state"`
+	IsHashed       bool                        `json:"isHashed"`
+	IsEncrypted    bool                        `json:"isEncrypted"`
+	Recipients     []smsgateway.RecipientState `json:"recipients"`
+	States         map[string]time.Time        `json:"states"`
+	ContentPreview string                      `json:"contentPreview,omitempty"`
 
-	Message      string                 `json:"message,omitempty"`
-	TextMessage  *smsgateway.TextMessage `json:"textMessage,omitempty"`
-	DataMessage  *smsgateway.DataMessage `json:"dataMessage,omitempty"`
-	PhoneNumbers []string               `json:"phoneNumbers,omitempty"`
+	Message       string                    `json:"message,omitempty"`
+	TextMessage   *smsgateway.TextMessage   `json:"textMessage,omitempty"`
+	DataMessage   *smsgateway.DataMessage   `json:"dataMessage,omitempty"`
+	HashedMessage *smsgateway.HashedMessage `json:"hashedMessage,omitempty"`
+	PhoneNumbers  []string                  `json:"phoneNumbers,omitempty"`
 }
 
-func MessageStateToDTO(state messages.MessageStateOut) MessageStateDTO {
+func MessageStateToDTO(state messages.MessageState) MessageStateDTO {
 	dto := MessageStateDTO{
 		ID:          state.ID,
 		DeviceID:    state.DeviceID,
@@ -70,18 +71,22 @@ func MessageStateToDTO(state messages.MessageStateOut) MessageStateDTO {
 		IsEncrypted: state.IsEncrypted,
 		Recipients:  state.Recipients,
 		States:      state.States,
+
+		TextMessage:   state.TextContent,
+		DataMessage:   state.DataContent,
+		HashedMessage: state.HashedContent,
 	}
 
-	if state.TextMessage != nil {
-		dto.TextMessage = &smsgateway.TextMessage{Text: state.TextMessage.Text}
-		dto.Message = state.TextMessage.Text
+	if state.TextContent != nil {
+		dto.TextMessage = &smsgateway.TextMessage{Text: state.TextContent.Text}
+		dto.Message = state.TextContent.Text
 	} else if state.Message != "" {
 		dto.Message = state.Message
 	}
-	if state.DataMessage != nil {
+	if state.DataContent != nil {
 		dto.DataMessage = &smsgateway.DataMessage{
-			Data: state.DataMessage.Data,
-			Port: state.DataMessage.Port,
+			Data: state.DataContent.Data,
+			Port: state.DataContent.Port,
 		}
 	}
 	if len(state.PhoneNumbers) > 0 {

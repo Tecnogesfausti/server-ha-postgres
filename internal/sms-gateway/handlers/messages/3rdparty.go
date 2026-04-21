@@ -11,6 +11,7 @@ import (
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/converters"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/permissions"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/handlers/middlewares/userauth"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/inbox"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/devices"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/messages"
 	"github.com/capcom6/go-helpers/slices"
@@ -29,6 +30,7 @@ type thirdPartyControllerParams struct {
 
 	MessagesSvc *messages.Service
 	DevicesSvc  *devices.Service
+	InboxSvc    *inbox.Service
 
 	Validator *validator.Validate
 	Logger    *zap.Logger
@@ -39,6 +41,7 @@ type ThirdPartyController struct {
 
 	messagesSvc *messages.Service
 	devicesSvc  *devices.Service
+	inboxSvc    *inbox.Service
 }
 
 func NewThirdPartyController(params thirdPartyControllerParams) *ThirdPartyController {
@@ -47,8 +50,10 @@ func NewThirdPartyController(params thirdPartyControllerParams) *ThirdPartyContr
 			Logger:    params.Logger,
 			Validator: params.Validator,
 		},
+
 		messagesSvc: params.MessagesSvc,
 		devicesSvc:  params.DevicesSvc,
+		inboxSvc:    params.InboxSvc,
 	}
 }
 
@@ -125,11 +130,13 @@ func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "No message content provided")
 	}
 
-	msg := messages.MessageIn{
-		ID: req.ID,
+	msg := messages.MessageInput{
+		MessageContent: messages.MessageContent{
+			TextContent: textContent,
+			DataContent: dataContent,
+		},
 
-		TextContent: textContent,
-		DataContent: dataContent,
+		ID: req.ID,
 
 		PhoneNumbers: req.PhoneNumbers,
 		IsEncrypted:  req.IsEncrypted,
@@ -180,15 +187,7 @@ func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusAccepted).
-		JSON(smsgateway.GetMessageResponse{
-			ID:          state.ID,
-			DeviceID:    state.DeviceID,
-			State:       smsgateway.ProcessingState(state.State),
-			IsHashed:    state.IsHashed,
-			IsEncrypted: state.IsEncrypted,
-			Recipients:  state.Recipients,
-			States:      state.States,
-		})
+		JSON(smsgateway.GetMessageResponse(converters.MessageStateToDTO(*state)))
 }
 
 //	@Summary		Get messages
@@ -197,17 +196,19 @@ func (h *ThirdPartyController) post(userID string, c *fiber.Ctx) error {
 //	@Security		JWTAuth
 //	@Tags			User, Messages
 //	@Produce		json
-//	@Param			from		query		string							false	"Start date in RFC3339 format"			Format(date-time)
-//	@Param			to			query		string							false	"End date in RFC3339 format"			Format(date-time)
-//	@Param			state		query		string							false	"Filter messages by processing state"	Enum(Pending, Processed, Sent, Delivered, Failed)
-//	@Param			deviceId	query		string							false	"Filter by device ID"					min(21)		max(21)
-//	@Param			limit		query		int								false	"Pagination limit"						default(50)	min(1)	max(100)
-//	@Param			offset		query		int								false	"Pagination offset"						default(0)
-//	@Success		200			{object}	smsgateway.GetMessagesResponse	"A list of messages"
-//	@Failure		400			{object}	smsgateway.ErrorResponse		"Invalid request"
-//	@Failure		401			{object}	smsgateway.ErrorResponse		"Unauthorized"
-//	@Failure		403			{object}	smsgateway.ErrorResponse		"Forbidden"
-//	@Failure		500			{object}	smsgateway.ErrorResponse		"Internal server error"
+//	@Param			from			query		string							false	"Start date in RFC3339 format"													Format(date-time)
+//	@Param			to				query		string							false	"End date in RFC3339 format"													Format(date-time)
+//	@Param			state			query		string							false	"Filter messages by processing state"											Enum(Pending, Processed, Sent, Delivered, Failed)
+//	@Param			deviceId		query		string							false	"Filter by device ID"															min(21)		max(21)
+//	@Param			limit			query		int								false	"Pagination limit"																default(50)	min(1)	max(100)
+//	@Param			offset			query		int								false	"Pagination offset"																default(0)
+//	@Param			includeContent	query		bool							false	"Include textMessage/dataMessage content for each message. Default is false"	default(false)
+//	@Success		200				{object}	smsgateway.GetMessagesResponse	"A list of messages"
+//	@Header			200				{integer}	X-Total-Count					"Total number of items available"
+//	@Failure		400				{object}	smsgateway.ErrorResponse		"Invalid request"
+//	@Failure		401				{object}	smsgateway.ErrorResponse		"Unauthorized"
+//	@Failure		403				{object}	smsgateway.ErrorResponse		"Forbidden"
+//	@Failure		500				{object}	smsgateway.ErrorResponse		"Internal server error"
 //	@Router			/3rdparty/v1/messages [get]
 //
 // Get message history.
@@ -282,19 +283,8 @@ func (h *ThirdPartyController) postInboxExport(userID string, c *fiber.Ctx) erro
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	device, err := h.devicesSvc.Get(userID, devices.WithID(req.DeviceID))
-	if err != nil {
-		if errors.Is(err, devices.ErrNotFound) {
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid device ID")
-		}
-
-		h.Logger.Error("failed to get device", zap.Error(err), zap.String("user_id", userID))
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to get device")
-	}
-
-	if expErr := h.messagesSvc.ExportInbox(device, req.Since, req.Until); expErr != nil {
-		h.Logger.Error("failed to export inbox", zap.Error(expErr), zap.String("user_id", userID))
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to export inbox")
+	if err := h.inboxSvc.Refresh(userID, &req.DeviceID, req.Since, req.Until); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusAccepted)
