@@ -192,7 +192,7 @@ func (r *Repository) HashProcessed(ctx context.Context, ids []uint64) (int64, er
 		query = query.Where("id IN ?", ids)
 	}
 
-	var messages []Message
+	var messages []messageModel
 	if err := query.Find(&messages).Error; err != nil {
 		return 0, fmt.Errorf("failed to select messages for hashing: %w", err)
 	}
@@ -206,7 +206,7 @@ func (r *Repository) HashProcessed(ctx context.Context, ids []uint64) (int64, er
 		}
 
 		err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&Message{}).
+			if err := tx.Model(&messageModel{}).
 				Where("id = ?", message.ID).
 				Updates(map[string]any{
 					"is_hashed": true,
@@ -221,7 +221,7 @@ func (r *Repository) HashProcessed(ctx context.Context, ids []uint64) (int64, er
 					hashedPhone = hashedPhone[:16]
 				}
 
-				if err := tx.Model(&MessageRecipient{}).
+				if err := tx.Model(&messageRecipientModel{}).
 					Where("id = ?", recipient.ID).
 					Update("phone_number", hashedPhone).Error; err != nil {
 					return err
@@ -249,7 +249,7 @@ func (r *Repository) Cleanup(ctx context.Context, until time.Time) (int64, error
 	return res.RowsAffected, res.Error
 }
 
-func hashMessageContent(message Message) (string, error) {
+func hashMessageContent(message messageModel) (string, error) {
 	if content, err := message.GetTextContent(); err != nil {
 		return "", err
 	} else if content != nil {
