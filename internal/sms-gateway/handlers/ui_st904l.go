@@ -47,7 +47,12 @@ var uiST904LHTML = `<!doctype html>
       <input id="authPass" type="password" placeholder="password" />
       <label for="trackerPhone">Tracker Phone (SIM in tracker)</label>
       <input id="trackerPhone" placeholder="+346XXXXXXXX" />
+      <label for="deviceId">Cloud Device (send target)</label>
+      <select id="deviceId">
+        <option value="">(Auto / any device)</option>
+      </select>
       <div class="row" style="margin-top:10px;">
+        <button id="refreshDevices" class="secondary">Load Devices</button>
         <button id="saveSession" class="secondary">Save Session</button>
         <button id="loadSession" class="secondary">Load Session</button>
       </div>
@@ -368,6 +373,7 @@ var uiST904LHTML = `<!doctype html>
     async function sendCommand() {
       const phone = $("trackerPhone").value.trim();
       const text = $("commandText").value.trim();
+      const deviceId = $("deviceId").value.trim();
       if (!phone || !text) {
         $("sendResult").textContent = "Tracker phone and command are required.";
         return;
@@ -376,6 +382,9 @@ var uiST904LHTML = `<!doctype html>
       $("sendResult").textContent = "Sending...";
       try {
         const payload = { phoneNumbers: [phone], textMessage: { text: text }, withDeliveryReport: true };
+        if (deviceId) {
+          payload.deviceId = deviceId;
+        }
         const data = await request("/messages", { method: "POST", body: JSON.stringify(payload) });
         $("sendResult").textContent = pretty(data);
         await refreshTrackerTimeline();
@@ -384,16 +393,48 @@ var uiST904LHTML = `<!doctype html>
       }
     }
 
+    async function loadDevices() {
+      const select = $("deviceId");
+      const previous = select.value || localStorage.getItem("st904l_device_id") || "";
+      select.innerHTML = "<option value=\"\">(Auto / any device)</option>";
+      try {
+        const devices = await request("/devices");
+        const options = Array.isArray(devices) ? devices : [];
+        options.forEach((d) => {
+          const id = String(d.id || "").trim();
+          if (!id) return;
+          const name = String(d.name || "device");
+          const lastSeen = d.lastSeen ? (" | lastSeen " + toDate(d.lastSeen)) : "";
+          const label = name + " (" + id + ")" + lastSeen;
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = label;
+          select.appendChild(opt);
+        });
+        if (previous) {
+          const exists = Array.from(select.options).some((o) => o.value === previous);
+          if (exists) select.value = previous;
+        }
+      } catch (err) {
+        $("sendResult").textContent = "Load devices failed: " + String(err);
+      }
+    }
+
     function saveSession() {
       localStorage.setItem("st904l_auth_user", $("authUser").value.trim());
       localStorage.setItem("st904l_auth_pass", $("authPass").value);
       localStorage.setItem("st904l_phone", $("trackerPhone").value.trim());
+      localStorage.setItem("st904l_device_id", $("deviceId").value.trim());
     }
 
     function loadSession() {
       $("authUser").value = localStorage.getItem("st904l_auth_user") || "";
       $("authPass").value = localStorage.getItem("st904l_auth_pass") || "";
       $("trackerPhone").value = localStorage.getItem("st904l_phone") || "";
+      const savedDevice = localStorage.getItem("st904l_device_id") || "";
+      if (savedDevice) {
+        $("deviceId").value = savedDevice;
+      }
     }
 
     function toggleAuto() {
@@ -413,9 +454,11 @@ var uiST904LHTML = `<!doctype html>
     $("toggleAuto").addEventListener("click", toggleAuto);
     $("saveSession").addEventListener("click", saveSession);
     $("loadSession").addEventListener("click", loadSession);
+    $("refreshDevices").addEventListener("click", loadDevices);
 
     initCommandCatalog();
     loadSession();
+    loadDevices();
     $("incomingList").innerHTML = "<div class=\"muted\">Set tracker phone and click Refresh.</div>";
     $("outgoingList").innerHTML = "<div class=\"muted\">Set tracker phone and click Refresh.</div>";
     $("sendResult").textContent = "Ready.";
