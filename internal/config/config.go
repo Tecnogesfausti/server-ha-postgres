@@ -28,6 +28,8 @@ type Gateway struct {
 	Mode         GatewayMode `yaml:"mode"          envconfig:"GATEWAY__MODE"`          // gateway mode: public or private
 	PrivateToken string      `yaml:"private_token" envconfig:"GATEWAY__PRIVATE_TOKEN"` // device registration token in private mode
 	UpstreamURL  string      `yaml:"upstream_url"  envconfig:"GATEWAY__UPSTREAM_URL"`  // upstream server URL for private-mode push notifications
+	InternalUser string      `yaml:"internal_user" envconfig:"GATEWAY__INTERNAL_USER"` // bootstrap internal username for simplified APK/web login
+	InternalPass string      `yaml:"internal_pass" envconfig:"GATEWAY__INTERNAL_PASS"` // bootstrap internal password for simplified APK/web login
 }
 
 type HTTP struct {
@@ -107,8 +109,10 @@ func Default() Config {
 	//nolint:exhaustruct,mnd // default values
 	return Config{
 		Gateway: Gateway{
-			Mode:        GatewayModePublic,
-			UpstreamURL: DefaultUpstreamURL,
+			Mode:         GatewayModePublic,
+			UpstreamURL:  DefaultUpstreamURL,
+			InternalUser: "sms",
+			InternalPass: "",
 		},
 		HTTP: HTTP{
 			Listen: ":3000",

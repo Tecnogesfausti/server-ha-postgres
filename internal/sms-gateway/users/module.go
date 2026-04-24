@@ -23,6 +23,7 @@ func Module() fx.Option {
 		}, fx.Private),
 		fx.Provide(newRepository, fx.Private),
 		fx.Provide(NewService),
+		fx.Invoke(registerBootstrapUser),
 	)
 }
 

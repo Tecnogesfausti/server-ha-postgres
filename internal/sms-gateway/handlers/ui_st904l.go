@@ -41,10 +41,7 @@ var uiST904LHTML = `<!doctype html>
   <div class="grid">
     <section class="card">
       <h2>Session</h2>
-      <label for="authUser">API User</label>
-      <input id="authUser" placeholder="M6KFDA" />
-      <label for="authPass">API Password</label>
-      <input id="authPass" type="password" placeholder="password" />
+      <p class="muted">Modo interno sin login manual (credenciales automáticas).</p>
       <label for="trackerPhone">Tracker Phone (SIM in tracker)</label>
       <input id="trackerPhone" placeholder="+346XXXXXXXX" />
       <label for="deviceId">Cloud Device (send target)</label>
@@ -96,6 +93,8 @@ var uiST904LHTML = `<!doctype html>
 
   <script>
     const apiBase = window.location.protocol + "//" + window.location.host + "/api/3rdparty/v1";
+    const defaultApiUser = "sms";
+    const defaultApiPass = "justdance";
     let autoTimer = null;
     const commandCatalog = [
       { key: "POS_SMS", label: "6690000 - SMS tracking", template: "6690000", example: "6690000", description: "Solicita posición por SMS (link Google Maps).", notes: "Comando directo al SIM del tracker." },
@@ -164,12 +163,10 @@ var uiST904LHTML = `<!doctype html>
     }
 
     async function request(path, options = {}) {
-      const authUser = $("authUser").value.trim();
-      const authPass = $("authPass").value;
+      const authUser = defaultApiUser;
+      const authPass = defaultApiPass;
       const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-      if (authUser) {
-        headers["Authorization"] = "Basic " + btoa(authUser + ":" + authPass);
-      }
+      headers["Authorization"] = "Basic " + btoa(authUser + ":" + authPass);
       const res = await fetch(apiBase + path, { ...options, headers, credentials: "same-origin" });
       const ct = res.headers.get("content-type") || "";
       const body = ct.includes("application/json") ? await res.json() : await res.text();
@@ -421,15 +418,11 @@ var uiST904LHTML = `<!doctype html>
     }
 
     function saveSession() {
-      localStorage.setItem("st904l_auth_user", $("authUser").value.trim());
-      localStorage.setItem("st904l_auth_pass", $("authPass").value);
       localStorage.setItem("st904l_phone", $("trackerPhone").value.trim());
       localStorage.setItem("st904l_device_id", $("deviceId").value.trim());
     }
 
     function loadSession() {
-      $("authUser").value = localStorage.getItem("st904l_auth_user") || "";
-      $("authPass").value = localStorage.getItem("st904l_auth_pass") || "";
       $("trackerPhone").value = localStorage.getItem("st904l_phone") || "";
       const savedDevice = localStorage.getItem("st904l_device_id") || "";
       if (savedDevice) {

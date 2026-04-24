@@ -13,6 +13,7 @@ import (
 	"github.com/android-sms-gateway/server/internal/sms-gateway/modules/sse"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/otp"
 	"github.com/android-sms-gateway/server/internal/sms-gateway/pubsub"
+	"github.com/android-sms-gateway/server/internal/sms-gateway/users"
 	"github.com/capcom6/go-infra-fx/config"
 	"github.com/capcom6/go-infra-fx/db"
 	"github.com/capcom6/go-infra-fx/http"
@@ -86,6 +87,12 @@ func Module() fx.Option {
 			return auth.Config{
 				Mode:         auth.Mode(cfg.Gateway.Mode),
 				PrivateToken: cfg.Gateway.PrivateToken,
+			}
+		}),
+		fx.Provide(func(cfg Config) users.Config {
+			return users.Config{
+				InternalUsername: cfg.Gateway.InternalUser,
+				InternalPassword: cfg.Gateway.InternalPass,
 			}
 		}),
 		fx.Provide(func(cfg Config) handlers.Config {

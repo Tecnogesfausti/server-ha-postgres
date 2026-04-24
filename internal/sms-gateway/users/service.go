@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/android-sms-gateway/server/internal/sms-gateway/jwt"
 	"github.com/go-core-fx/cachefx/cache"
@@ -59,6 +60,29 @@ func (s *Service) Create(username, password string) (*User, error) {
 	}
 
 	return newUser(user), nil
+}
+
+func (s *Service) EnsureExists(username, password string) (bool, error) {
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	if username == "" || password == "" {
+		return false, nil
+	}
+
+	exists, err := s.users.Exists(username)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return false, nil
+	}
+
+	_, err = s.Create(username, password)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (s *Service) GetByUsername(username string) (*User, error) {
