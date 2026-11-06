@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/android-sms-gateway/server/pkg/mysql"
+	"github.com/android-sms-gateway/server/pkg/dberrors"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +24,7 @@ func (r *Repository) Insert(message *Message) error {
 		return nil
 	}
 
-	if errors.Is(err, gorm.ErrDuplicatedKey) || mysql.IsDuplicateKeyViolation(err) {
+	if dberrors.IsDuplicateKey(err) {
 		return ErrMessageAlreadyExists
 	}
 
