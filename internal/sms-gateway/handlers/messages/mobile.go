@@ -116,7 +116,39 @@ func (h *MobileController) patch(device models.Device, c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// reject confirms a device-owned pending order was persistently rejected.
+func (h *MobileController) reject(device models.Device, c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" || len(id) > 36 {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid message id")
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON")
+	}
+	switch req.Reason {
+	case "wrong_recipient", "unsupported_format", "unsupported_encryption", "unsupported_sim", "unsupported_command":
+	default:
+		return fiber.NewError(fiber.StatusBadRequest, "invalid rejection reason")
+	}
+	err := h.messagesSvc.RejectPending(device, id, req.Reason)
+	if errors.Is(err, messages.ErrMessageNotFound) {
+		return fiber.ErrNotFound
+	}
+	if errors.Is(err, messages.ErrRejectionConflict) {
+		return fiber.NewError(fiber.StatusConflict, "message already processed or rejected for another reason")
+	}
+	if err != nil {
+		h.Logger.Error("failed to reject message", zap.Error(err))
+		return fiber.ErrInternalServerError
+	}
+	return c.JSON(fiber.Map{"id": id, "state": "Failed", "reason": req.Reason})
+}
+
 func (h *MobileController) Register(router fiber.Router) {
 	router.Get("", deviceauth.WithDevice(h.list))
 	router.Patch("", deviceauth.WithDevice(h.patch))
+	router.Post("/:id/reject", deviceauth.WithDevice(h.reject))
 }
