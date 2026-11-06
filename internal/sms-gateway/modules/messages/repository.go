@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/android-sms-gateway/server/pkg/dberrors"
 	"github.com/capcom6/go-infra-fx/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -136,7 +137,7 @@ func (r *Repository) Insert(message *Message) error {
 		return nil
 	}
 
-	if errors.Is(err, gorm.ErrDuplicatedKey) {
+	if dberrors.IsDuplicateKey(err) {
 		return ErrMessageAlreadyExists
 	}
 
