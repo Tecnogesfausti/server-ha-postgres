@@ -383,3 +383,21 @@ func cleanPhoneNumber(input string) (string, error) {
 
 	return phonenumbers.Format(phone, phonenumbers.E164), nil
 }
+
+// RejectPending confirms only after the transaction commits.
+func (s *Service) RejectPending(device models.Device, id, reason string) error {
+	_, err := s.messages.RejectPending(device.ID, id, reason)
+	if err != nil {
+		return err
+	}
+	// Refresh the user-facing cache including recipients and state history.
+	full, err := s.messages.Get(*new(SelectFilter).WithExtID(id).WithDeviceID(device.ID), *new(SelectOptions).IncludeRecipients().IncludeStates())
+	if err == nil {
+		if e := s.cache.Set(context.Background(), device.UserID, id, anys.AsPointer(modelToMessageState(full))); e != nil {
+			s.logger.Warn("failed to refresh rejected message cache", zap.Error(e))
+		}
+	} else {
+		s.logger.Warn("failed to load rejected message for cache", zap.Error(err))
+	}
+	return nil
+}

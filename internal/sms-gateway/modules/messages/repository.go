@@ -18,6 +18,7 @@ const maxPendingBatch = 100
 
 var ErrMessageNotFound = errors.New("message not found")
 var ErrMessageAlreadyExists = errors.New("duplicate id")
+var ErrRejectionConflict = errors.New("message cannot be rejected with this reason or state")
 var ErrMultipleMessagesFound = errors.New("multiple messages found")
 
 type Repository struct {
@@ -264,4 +265,40 @@ func hashMessageContent(message Message) (string, error) {
 func hashString(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
+}
+
+// RejectPending atomically rejects a device-owned pending message while preserving history.
+func (r *Repository) RejectPending(deviceID, id, reason string) (Message, error) {
+	var message Message
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("device_id = ? AND ext_id = ?", deviceID, id).First(&message)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return ErrMessageNotFound
+		}
+		if result.Error != nil {
+			return result.Error
+		}
+		if message.RejectionReason != nil && message.State == ProcessingStateFailed && *message.RejectionReason == reason {
+			return nil
+		}
+		if message.State != ProcessingStatePending || message.RejectionReason != nil {
+			return ErrRejectionConflict
+		}
+		if err := tx.Model(&message).Updates(map[string]any{"state": ProcessingStateFailed, "rejection_reason": reason}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&MessageRecipient{}).Where("message_id = ?", message.ID).Updates(map[string]any{"state": ProcessingStateFailed, "error": reason}).Error; err != nil {
+			return err
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&MessageState{MessageID: message.ID, State: ProcessingStateFailed}).Error; err != nil {
+			return err
+		}
+		message.State = ProcessingStateFailed
+		message.RejectionReason = &reason
+		return nil
+	})
+	if err != nil {
+		return Message{}, err
+	}
+	return message, nil
 }

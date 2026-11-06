@@ -47,6 +47,8 @@ type Message struct {
 	WithDeliveryReport bool `gorm:"not null;default:false"`
 	Priority           int8 `gorm:"not null;default:0"`
 
+	RejectionReason *string `gorm:"type:varchar(64)"`
+
 	IsHashed    bool `gorm:"not null;default:false"`
 	IsEncrypted bool `gorm:"not null;default:false"`
 
